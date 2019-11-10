@@ -4,10 +4,10 @@ class MemoryRegion:
         self._base_address = base_address
 
     def read_byte(self, address: int) -> int:
-        return self._data[address & self._base_address]
+        return self._data[address - self._base_address]
 
     def write_byte(self, address: int, value: int):
-        self._data[address & self._base_address] = value
+        self._data[address - self._base_address] = value
 
     def read_word(self, address: int):
         return self.read_byte(address) + ((self.read_byte(address + 1)) << 8)
@@ -17,4 +17,5 @@ class MemoryRegion:
         self.write_byte(address + 1, (value >> 8))
 
     def read_byte_range(self, address_start, length):
-        return self._data[address_start: address_start + length]
+        start_index = address_start - self._base_address
+        return self._data[start_index: start_index + length]

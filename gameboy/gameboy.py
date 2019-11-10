@@ -14,3 +14,6 @@ class GameBoy:
 
     def start(self) -> None:
         pass
+
+    def step(self) -> None:
+        pass
