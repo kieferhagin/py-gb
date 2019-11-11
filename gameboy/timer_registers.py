@@ -5,6 +5,7 @@ from gameboy.memory_region import MemoryRegion
 class TimerRegisters(MemoryRegion):
     DIVIDER_ADDRESS = 0xFF04
     TIMER_ADDRESS = 0xFF05
+    TIMER_MODULO = 0xFF06
     TIMER_CONTROL = 0xFF07
 
     def __init__(self):
@@ -12,6 +13,7 @@ class TimerRegisters(MemoryRegion):
 
         self._divider_cycle_clock = CycleClock()
         self._timer_overflow = False
+        self._timer_loading_modulo = False
 
     def get_timer_overflow(self) -> bool:
         return self._timer_overflow
@@ -42,6 +44,16 @@ class TimerRegisters(MemoryRegion):
             self._clear_timer_counter()
 
             return
+
+        if address == self.TIMER_ADDRESS:
+            if self._timer_loading_modulo:
+                return
+
+            self.clear_timer_overflow()
+
+        if address == self.TIMER_MODULO:
+            if self._timer_loading_modulo:
+                super().write_byte(self.TIMER_ADDRESS, value)
 
         if address == self.TIMER_CONTROL:
             self.update_timer_control(value)
@@ -92,8 +104,8 @@ class TimerRegisters(MemoryRegion):
         current_timer_value = self.read_byte(self.TIMER_ADDRESS)
 
         if current_timer_value == 0xFF:
-            self._timer_overflow = True
             self.write_byte(self.TIMER_ADDRESS, 0)
+            self._timer_overflow = True
 
             return
 

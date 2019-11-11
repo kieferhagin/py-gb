@@ -13,6 +13,8 @@ def timer_registers_fixture() -> TimerRegisters:
 def test_timer_registers_init(timer_registers_fixture):
     assert len(timer_registers_fixture._data) == 4
     assert timer_registers_fixture._divider_cycle_clock is not None
+    assert timer_registers_fixture._timer_overflow is False
+    assert timer_registers_fixture._timer_loading_modulo is False
 
 
 def test_timer_registers_rest(timer_registers_fixture):
@@ -267,3 +269,33 @@ def test_timer_register_clear_timer_overflow(timer_registers_fixture):
     timer_registers_fixture.clear_timer_overflow()
 
     assert timer_registers_fixture._timer_overflow is False
+
+
+def test_timer_register_write_to_timer_counter_clears_overflow_state(timer_registers_fixture):
+    timer_registers_fixture._timer_overflow = True
+
+    timer_registers_fixture.write_byte(timer_registers_fixture.TIMER_ADDRESS, 100)
+
+    assert timer_registers_fixture._timer_overflow is False
+
+
+def test_timer_register_ignore_timer_counter_writes_loading_modulo(timer_registers_fixture):
+    timer_registers_fixture._timer_loading_modulo = True
+
+    timer_registers_fixture.write_byte(timer_registers_fixture.TIMER_ADDRESS, 100)
+
+    assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_ADDRESS) == 0
+
+
+def test_timer_register_writing_to_modulo_loading(timer_registers_fixture):
+    timer_registers_fixture._timer_loading_modulo = False
+
+    timer_registers_fixture.write_byte(timer_registers_fixture.TIMER_MODULO, 100)
+    assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_ADDRESS) == 0
+    assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_MODULO) == 100
+
+    timer_registers_fixture._timer_loading_modulo = True
+
+    timer_registers_fixture.write_byte(timer_registers_fixture.TIMER_MODULO, 100)
+    assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_ADDRESS) == 100
+    assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_MODULO) == 100
