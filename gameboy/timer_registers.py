@@ -4,23 +4,33 @@ from gameboy.memory_region import MemoryRegion
 
 class TimerRegisters(MemoryRegion):
     DIVIDER_ADDRESS = 0xFF04
+    TIMER_ADDRESS = 0xFF05
     TIMER_CONTROL = 0xFF07
 
     def __init__(self):
         super().__init__(bytearray(4), 0xFF04)
 
         self._divider_cycle_clock = CycleClock()
-        self._timer_cycle_clock = CycleClock()
+        self._timer_overflow = False
+
+    def get_timer_overflow(self) -> bool:
+        return self._timer_overflow
+
+    def clear_timer_overflow(self):
+        self._timer_overflow = False
 
     def reset(self) -> None:
         self._divider_cycle_clock.reset()
-        self._timer_cycle_clock.reset()
 
     def tick(self, machine_cycles: int=1) -> int:
+        old_timer_falling_edge_bit = self.get_timer_falling_edge_bit()
+
         self._divider_cycle_clock.tick(machine_cycles)
 
-        if self.get_divider_timer_value() >= 255:
+        if self.get_divider_timer_value() > 255:
             self._divider_cycle_clock.reset()
+
+        self.try_increment_timer_counter(old_timer_falling_edge_bit)
 
         return self._divider_cycle_clock.get_total_machine_cycles()
 
@@ -29,14 +39,10 @@ class TimerRegisters(MemoryRegion):
         # This is because the Game Boy uses the same 16 bit register for both values
         if address == self.DIVIDER_ADDRESS:
             self._divider_cycle_clock.reset()
-            self._timer_cycle_clock.reset()
+            self._clear_timer_counter()
 
             return
 
-        # QUIRK
-        # If we've changed the timer control speed or disabled it, we might be changing
-        # the input to the falling edge detector used to increment timer.
-        # If this happens we get an extra timer tick.
         if address == self.TIMER_CONTROL:
             self.update_timer_control(value)
 
@@ -45,6 +51,11 @@ class TimerRegisters(MemoryRegion):
         super().write_byte(address, value)
 
     def update_timer_control(self, value: int) -> None:
+        # QUIRK
+        # If we've changed the timer control speed or disabled it, we might be changing
+        # the input to the falling edge detector used to increment timer.
+        # If this happens we get an extra timer tick.
+
         old_bit = self.get_timer_clock_enabled() and self.get_timer_falling_edge_bit()
 
         super().write_byte(self.TIMER_CONTROL, value)
@@ -52,7 +63,7 @@ class TimerRegisters(MemoryRegion):
         new_bit = self.get_timer_clock_enabled() and self.get_timer_falling_edge_bit()
 
         if old_bit and not new_bit:
-            self._timer_cycle_clock.tick()
+            self._increment_timer_counter()
 
     def read_byte(self, address: int) -> int:
         # Divider increments once every 64 machine cycles, so we'll fake that here
@@ -63,6 +74,33 @@ class TimerRegisters(MemoryRegion):
 
     def get_divider_timer_value(self) -> int:
         return int(self._divider_cycle_clock.get_total_machine_cycles() / 64)
+
+    def try_increment_timer_counter(self, old_falling_edge_bit: int) -> bool:
+        if not self.get_timer_clock_enabled():
+            return False
+
+        new_falling_edge_bit = self.get_timer_falling_edge_bit()
+
+        if not new_falling_edge_bit and old_falling_edge_bit:
+            self._increment_timer_counter()
+
+            return True
+
+        return False
+
+    def _increment_timer_counter(self) -> None:
+        current_timer_value = self.read_byte(self.TIMER_ADDRESS)
+
+        if current_timer_value == 0xFF:
+            self._timer_overflow = True
+            self.write_byte(self.TIMER_ADDRESS, 0)
+
+            return
+
+        self.write_byte(self.TIMER_ADDRESS, current_timer_value + 1)
+
+    def _clear_timer_counter(self):
+        self.write_byte(self.TIMER_ADDRESS, 0)
 
     def get_timer_clock_enabled(self) -> bool:
         return (self.get_timer_control_value() & 0x04) > 0
