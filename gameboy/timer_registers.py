@@ -1,3 +1,5 @@
+from typing import Callable
+
 from gameboy.cycle_clock import CycleClock
 from gameboy.memory_region import MemoryRegion
 
@@ -8,23 +10,27 @@ class TimerRegisters(MemoryRegion):
     TIMER_MODULO = 0xFF06
     TIMER_CONTROL = 0xFF07
 
-    def __init__(self):
+    def __init__(self, on_set_tima_interrupt: Callable):
         super().__init__(bytearray(4), 0xFF04)
 
         self._divider_cycle_clock = CycleClock()
         self._timer_overflow = False
         self._timer_loading_modulo = False
-
-    def get_timer_overflow(self) -> bool:
-        return self._timer_overflow
-
-    def clear_timer_overflow(self):
-        self._timer_overflow = False
+        self._on_set_tima_interrupt = on_set_tima_interrupt
 
     def reset(self) -> None:
         self._divider_cycle_clock.reset()
 
     def tick(self, machine_cycles: int=1) -> int:
+        self._timer_loading_modulo = False
+
+        if self.get_timer_overflow():
+            self._on_set_tima_interrupt()
+            self.clear_timer_overflow()
+
+            self._set_timer_to_modulo()
+            self._timer_loading_modulo = True
+
         old_timer_falling_edge_bit = self.get_timer_falling_edge_bit()
 
         self._divider_cycle_clock.tick(machine_cycles)
@@ -35,6 +41,9 @@ class TimerRegisters(MemoryRegion):
         self.try_increment_timer_counter(old_timer_falling_edge_bit)
 
         return self._divider_cycle_clock.get_total_machine_cycles()
+
+    def get_timer_overflow(self) -> bool:
+        return self._timer_overflow
 
     def write_byte(self, address: int, value: int) -> None:
         # Writing to the divider register clears both clocks
@@ -61,6 +70,9 @@ class TimerRegisters(MemoryRegion):
             return
 
         super().write_byte(address, value)
+
+    def clear_timer_overflow(self):
+        self._timer_overflow = False
 
     def update_timer_control(self, value: int) -> None:
         # QUIRK
@@ -138,3 +150,7 @@ class TimerRegisters(MemoryRegion):
 
     def get_timer_control_value(self) -> int:
         return self.read_byte(self.TIMER_CONTROL)
+
+    def _set_timer_to_modulo(self) -> None:
+        timer_modulo_value = self.read_byte(self.TIMER_MODULO)
+        super().write_byte(self.TIMER_ADDRESS, timer_modulo_value)

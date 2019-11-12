@@ -7,7 +7,7 @@ from gameboy.timer_registers import TimerRegisters
 
 @pytest.fixture()
 def timer_registers_fixture() -> TimerRegisters:
-    return TimerRegisters()
+    return TimerRegisters(on_set_tima_interrupt=mock.Mock())
 
 
 def test_timer_registers_init(timer_registers_fixture):
@@ -299,3 +299,26 @@ def test_timer_register_writing_to_modulo_loading(timer_registers_fixture):
     timer_registers_fixture.write_byte(timer_registers_fixture.TIMER_MODULO, 100)
     assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_ADDRESS) == 100
     assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_MODULO) == 100
+
+
+def test_timer_register_tick_clears_modulo_loading(timer_registers_fixture):
+    timer_registers_fixture._timer_loading_modulo = True
+    timer_registers_fixture.tick()
+    assert not timer_registers_fixture._timer_loading_modulo
+
+
+def test_timer_register_tick_clears_overflow(timer_registers_fixture):
+    timer_registers_fixture._timer_overflow = True
+    timer_registers_fixture.tick()
+    assert not timer_registers_fixture._timer_overflow
+
+
+def test_timer_register_tick_overflowed_sets_timer_to_modulo(timer_registers_fixture):
+    timer_registers_fixture.write_byte(timer_registers_fixture.TIMER_MODULO, 100)
+
+    timer_registers_fixture._timer_overflow = True
+    timer_registers_fixture.tick()
+
+    assert timer_registers_fixture.read_byte(timer_registers_fixture.TIMER_ADDRESS) == 100
+    assert timer_registers_fixture._timer_loading_modulo
+    timer_registers_fixture._on_set_tima_interrupt.assert_called_once()

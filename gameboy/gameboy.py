@@ -17,3 +17,6 @@ class GameBoy:
 
     def step(self) -> None:
         pass
+
+    def set_interrupt(self, interrupt_bit):
+        pass
