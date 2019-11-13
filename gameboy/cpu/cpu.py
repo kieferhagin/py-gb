@@ -12,4 +12,8 @@ class CPU:
         self._cycle_clock.reset()
 
     def step(self):
-        self._registers.mask_program_counter()
+        pass
+
+    def _handle_interrupts(self) -> None:
+        if not self._registers.get_interrupts_enabled():
+            return

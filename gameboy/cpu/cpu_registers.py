@@ -14,8 +14,13 @@ class CPURegisters:
         self._program_counter = 0
         self._stack_pointer = 0
 
+        self._interrupts_enabled = False
+
     def reset(self) -> None:
         self.__init__()
 
     def mask_program_counter(self) -> None:
         self._program_counter &= 0xFFFF
+
+    def get_interrupts_enabled(self) -> bool:
+        return self._interrupts_enabled

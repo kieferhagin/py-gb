@@ -21,6 +21,8 @@ def test_cpu_registers_init(cpu_registers_fixture):
 
     assert cpu_registers_fixture._program_counter == 0
     assert cpu_registers_fixture._stack_pointer == 0
+    assert cpu_registers_fixture._interrupts_enabled is False
+
 
 def test_cpu_registers_reset(cpu_registers_fixture):
     cpu_registers_fixture._register_a = 1

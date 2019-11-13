@@ -23,3 +23,10 @@ def test_cpu_reset(cpu_fixture):
 
     cpu_fixture._registers.reset.assert_called_once()
     cpu_fixture._cycle_clock.reset.assert_called_once()
+
+
+# def test_cpu_step_masks_program_counter(cpu_fixture):
+#     cpu_fixture._registers._program_counter = 0xFFFF
+#     cpu_fixture.step()
+#
+#     assert cpu_fixture._registers._program_counter == 0x0000
