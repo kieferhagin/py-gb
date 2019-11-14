@@ -13,6 +13,8 @@ def gameboy_fixture() -> GameBoy:
 
 def test_gameboy_init(gameboy_fixture):
     assert gameboy_fixture._memory_unit is not None
+    assert gameboy_fixture._cpu is not None
+    assert gameboy_fixture._cpu._memory_unit == gameboy_fixture._memory_unit
 
 
 def test_gameboy_get_memory_unit(gameboy_fixture):

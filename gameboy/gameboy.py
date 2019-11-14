@@ -1,4 +1,5 @@
-from gameboy.memory_unit import MemoryUnit
+from gameboy.cpu.cpu import CPU
+from gameboy.memory.memory_unit import MemoryUnit
 from gameboy.rom import ROM
 
 
@@ -6,6 +7,8 @@ class GameBoy:
     def __init__(self):
         self._rom = None
         self._memory_unit = MemoryUnit()
+
+        self._cpu = CPU(self._memory_unit)
 
     def load_rom(self, rom: ROM) -> bool:
         print('Loaded ROM: {}'.format(rom.get_title()))

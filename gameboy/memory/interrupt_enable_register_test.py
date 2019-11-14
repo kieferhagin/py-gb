@@ -1,7 +1,6 @@
 import pytest
 
-from gameboy.interrupt_enable_register import InterruptEnableRegister
-from gameboy.interrupt_flag_register import InterruptFlagRegister
+from gameboy.memory.interrupt_enable_register import InterruptEnableRegister
 
 
 @pytest.fixture()

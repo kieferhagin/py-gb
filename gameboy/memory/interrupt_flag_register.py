@@ -1,4 +1,4 @@
-from gameboy.memory_region import MemoryRegion
+from gameboy.memory.memory_region import MemoryRegion
 
 
 class InterruptFlagRegister(MemoryRegion):
@@ -43,6 +43,24 @@ class InterruptFlagRegister(MemoryRegion):
 
     def clear_joypad_interrupt(self):
         self._data[0] = self._data[0] & ~self.INTERRUPT_JOYPAD
+
+    def clear_interrupt_by_bit(self, bit_to_clear: int) -> None:
+        if bit_to_clear == self.INTERRUPT_VBLANK:
+            return self.clear_vblank_interrupt()
+
+        if bit_to_clear == self.INTERRUPT_LCDC:
+            return self.clear_lcdc_interrupt()
+
+        if bit_to_clear == self.INTERRUPT_TIMA:
+            return self.clear_tima_interrupt()
+
+        if bit_to_clear == self.INTERRUPT_SERIAL:
+            return self.clear_serial_interrupt()
+
+        if bit_to_clear == self.INTERRUPT_JOYPAD:
+            return self.clear_joypad_interrupt()
+
+        raise Exception('invalid bit to clear: {}'.format(bit_to_clear))
 
     def write_byte(self, address: int, value: int):
         # Top 4 bits of interrupt flags always read "1"s

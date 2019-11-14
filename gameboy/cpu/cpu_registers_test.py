@@ -20,7 +20,7 @@ def test_cpu_registers_init(cpu_registers_fixture):
     assert cpu_registers_fixture._flags == 0
 
     assert cpu_registers_fixture._program_counter == 0
-    assert cpu_registers_fixture._stack_pointer == 0
+    assert cpu_registers_fixture._stack_pointer == 0xFFFE
     assert cpu_registers_fixture._interrupts_enabled is False
 
 
@@ -38,6 +38,8 @@ def test_cpu_registers_reset(cpu_registers_fixture):
     cpu_registers_fixture._program_counter = 1
     cpu_registers_fixture._stack_pointer = 1
 
+    cpu_registers_fixture._interrupts_enabled = True
+
     cpu_registers_fixture.reset()
 
     assert cpu_registers_fixture._register_a == 0
@@ -51,7 +53,8 @@ def test_cpu_registers_reset(cpu_registers_fixture):
     assert cpu_registers_fixture._flags == 0
 
     assert cpu_registers_fixture._program_counter == 0
-    assert cpu_registers_fixture._stack_pointer == 0
+    assert cpu_registers_fixture._stack_pointer == 0xFFFE
+    assert cpu_registers_fixture._interrupts_enabled is False
 
 
 def test_mask_program_counter(cpu_registers_fixture):
@@ -59,3 +62,50 @@ def test_mask_program_counter(cpu_registers_fixture):
     cpu_registers_fixture.mask_program_counter()
 
     assert cpu_registers_fixture._program_counter == 0
+
+
+def test_cpu_registers_disable_interrupts(cpu_registers_fixture):
+    cpu_registers_fixture._interrupts_enabled = True
+    cpu_registers_fixture.disable_interrupts()
+
+    assert not cpu_registers_fixture._interrupts_enabled
+
+
+def test_cpu_registers_enable_interrupts(cpu_registers_fixture):
+    cpu_registers_fixture._interrupts_enabled = False
+    cpu_registers_fixture.enable_interrupts()
+
+    assert cpu_registers_fixture._interrupts_enabled
+
+
+def test_cpu_registers_increment_program_counter(cpu_registers_fixture):
+    cpu_registers_fixture.increment_program_counter()
+
+    assert cpu_registers_fixture._program_counter == 1
+
+    cpu_registers_fixture.increment_program_counter(2)
+
+    assert cpu_registers_fixture._program_counter == 3
+
+    cpu_registers_fixture.increment_program_counter(0xFFFF)
+
+    assert cpu_registers_fixture._program_counter == 2
+
+
+def test_cpu_registers_get_program_counter(cpu_registers_fixture):
+    cpu_registers_fixture.increment_program_counter()
+
+    assert cpu_registers_fixture.get_program_counter() == 1
+
+
+def test_cpu_registers_get_stack_pointer(cpu_registers_fixture):
+    cpu_registers_fixture._stack_pointer = 1
+    assert cpu_registers_fixture.get_stack_pointer() == 1
+
+
+def test_cpu_registers_set_stack_pointer(cpu_registers_fixture):
+    cpu_registers_fixture._stack_pointer = 1
+    cpu_registers_fixture.set_stack_pointer(2)
+
+    assert cpu_registers_fixture.get_stack_pointer() == 2
+

@@ -1,4 +1,4 @@
-from gameboy.memory_region import MemoryRegion
+from gameboy.memory.memory_region import MemoryRegion
 
 
 class InterruptEnableRegister(MemoryRegion):

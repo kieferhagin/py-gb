@@ -1,7 +1,7 @@
 from typing import Callable
 
 from gameboy.cycle_clock import CycleClock
-from gameboy.memory_region import MemoryRegion
+from gameboy.memory.memory_region import MemoryRegion
 
 
 class TimerRegisters(MemoryRegion):

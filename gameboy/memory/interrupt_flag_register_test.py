@@ -1,6 +1,6 @@
 import pytest
 
-from gameboy.interrupt_flag_register import InterruptFlagRegister
+from gameboy.memory.interrupt_flag_register import InterruptFlagRegister
 
 
 @pytest.fixture()
@@ -88,3 +88,35 @@ def test_interrupt_register_get_interrupt(interrupt_flag_register_fixture):
     interrupt_flag_register_fixture.set_lcdc_interrupt()
 
     assert interrupt_flag_register_fixture.get_interrupt_bits() == 0x03
+
+
+def test_interrupt_flag_register_clear_by_bit(interrupt_flag_register_fixture):
+    interrupt_flag_register_fixture.set_vblank_interrupt()
+
+    interrupt_flag_register_fixture.clear_interrupt_by_bit(interrupt_flag_register_fixture.INTERRUPT_VBLANK)
+
+    assert interrupt_flag_register_fixture.get_interrupt_bits() == 0
+
+    interrupt_flag_register_fixture.set_lcdc_interrupt()
+
+    interrupt_flag_register_fixture.clear_interrupt_by_bit(interrupt_flag_register_fixture.INTERRUPT_LCDC)
+
+    assert interrupt_flag_register_fixture.get_interrupt_bits() == 0
+
+    interrupt_flag_register_fixture.set_tima_interrupt()
+
+    interrupt_flag_register_fixture.clear_interrupt_by_bit(interrupt_flag_register_fixture.INTERRUPT_TIMA)
+
+    assert interrupt_flag_register_fixture.get_interrupt_bits() == 0
+
+    interrupt_flag_register_fixture.set_serial_interrupt()
+
+    interrupt_flag_register_fixture.clear_interrupt_by_bit(interrupt_flag_register_fixture.INTERRUPT_SERIAL)
+
+    assert interrupt_flag_register_fixture.get_interrupt_bits() == 0
+
+    interrupt_flag_register_fixture.set_joypad_interrupt()
+
+    interrupt_flag_register_fixture.clear_interrupt_by_bit(interrupt_flag_register_fixture.INTERRUPT_JOYPAD)
+
+    assert interrupt_flag_register_fixture.get_interrupt_bits() == 0
