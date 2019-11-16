@@ -48,3 +48,31 @@ class CPURegisters:
 
     def set_stack_pointer(self, value):
         self._stack_pointer = value & 0xFFFF
+
+    def read_af(self) -> int:
+        return (self._register_a << 8) | self._flags
+
+    def read_bc(self) -> int:
+        return (self._register_b << 8) | self._register_c
+
+    def read_de(self) -> int:
+        return (self._register_d << 8) | self._register_e
+
+    def read_hl(self) -> int:
+        return (self._register_h << 8) | self._register_l
+
+    def write_af(self, value: int):
+        self._register_a = value >> 8
+        self._flags = value & 0xF0
+
+    def write_bc(self, value: int):
+        self._register_b = value >> 8
+        self._register_c = value & 0xFF
+
+    def write_de(self, value: int):
+        self._register_d = value >> 8
+        self._register_e = value & 0xFF
+
+    def write_hl(self, value: int):
+        self._register_h = value >> 8
+        self._register_l = value & 0xFF

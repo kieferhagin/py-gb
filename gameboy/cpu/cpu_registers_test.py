@@ -109,3 +109,55 @@ def test_cpu_registers_set_stack_pointer(cpu_registers_fixture):
 
     assert cpu_registers_fixture.get_stack_pointer() == 2
 
+
+def test_cpu_registers_read_af(cpu_registers_fixture):
+    cpu_registers_fixture._register_a = 1
+    cpu_registers_fixture._flags = 244
+
+    assert cpu_registers_fixture.read_af() == 500
+
+
+def test_cpu_registers_read_bc(cpu_registers_fixture):
+    cpu_registers_fixture._register_b = 1
+    cpu_registers_fixture._register_c = 244
+
+    assert cpu_registers_fixture.read_bc() == 500
+
+
+def test_cpu_registers_read_de(cpu_registers_fixture):
+    cpu_registers_fixture._register_d = 1
+    cpu_registers_fixture._register_e = 244
+
+    assert cpu_registers_fixture.read_de() == 500
+
+
+def test_cpu_registers_read_hl(cpu_registers_fixture):
+    cpu_registers_fixture._register_h = 1
+    cpu_registers_fixture._register_l = 244
+
+    assert cpu_registers_fixture.read_hl() == 500
+
+
+def test_cpu_registers_write_af(cpu_registers_fixture):
+    cpu_registers_fixture.write_af(496)
+
+    assert cpu_registers_fixture.read_af() == 496
+
+
+def test_cpu_registers_write_bc(cpu_registers_fixture):
+    cpu_registers_fixture.write_bc(500)
+
+    assert cpu_registers_fixture.read_bc() == 500
+
+
+def test_cpu_registers_write_de(cpu_registers_fixture):
+    cpu_registers_fixture.write_de(500)
+
+    assert cpu_registers_fixture.read_de() == 500
+
+
+def test_cpu_registers_write_hl(cpu_registers_fixture):
+    cpu_registers_fixture.write_hl(500)
+
+    assert cpu_registers_fixture.read_hl() == 500
+
