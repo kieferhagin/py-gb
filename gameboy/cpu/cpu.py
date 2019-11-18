@@ -12,6 +12,7 @@ class CPU:
         self._cpu_instructions = CPUInstructions(self)
 
         self._is_halted = False
+        self._interrupt_enable_pending = False
 
     def reset(self):
         self._registers.reset()
@@ -20,6 +21,22 @@ class CPU:
         self._is_halted = False
 
     def step(self):
+        if self._is_halted:
+            self._cycle_clock.tick()
+
+            return
+
+        if self._interrupt_enable_pending:
+            self._registers.enable_interrupts()
+            self._interrupt_enable_pending = False
+
+        op_code = self.read_immediate_byte()
+
+        # TODO: halt bug
+
+        self._execute_operation(op_code)
+
+    def _execute_operation(self, op_code: int):
         pass
 
     def get_registers(self):
