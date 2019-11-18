@@ -76,3 +76,45 @@ class CPURegisters:
     def write_hl(self, value: int):
         self._register_h = value >> 8
         self._register_l = value & 0xFF
+
+    def update_flags(self, zero: bool, subtract: bool, half_carry: bool, carry: bool):
+        self.update_flag_zero(zero)
+        self.update_flag_subtract(subtract)
+        self.update_flag_half_carry(half_carry)
+        self.update_flag_carry(carry)
+
+    def update_flag_zero(self, value: bool):
+        if value:
+            self._flags |= 0x80
+        else:
+            self._flags &= ~0x80
+
+    def update_flag_subtract(self, value: bool):
+        if value:
+            self._flags |= 0x40
+        else:
+            self._flags &= ~0x40
+
+    def update_flag_half_carry(self, value: bool):
+        if value:
+            self._flags |= 0x20
+        else:
+            self._flags &= ~0x20
+
+    def update_flag_carry(self, value: bool):
+        if value:
+            self._flags |= 0x10
+        else:
+            self._flags &= ~0x10
+
+    def read_flag_zero(self) -> int:
+        return self._flags & 0x80
+
+    def read_flag_subtract(self) -> int:
+        return self._flags & 0x40
+
+    def read_flag_half_carry(self) -> int:
+        return self._flags & 0x20
+
+    def read_flag_carry(self) -> int:
+        return self._flags & 0x10

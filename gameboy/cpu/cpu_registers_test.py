@@ -161,3 +161,87 @@ def test_cpu_registers_write_hl(cpu_registers_fixture):
 
     assert cpu_registers_fixture.read_hl() == 500
 
+
+def test_cpu_registers_update_flag_zero(cpu_registers_fixture):
+    cpu_registers_fixture.update_flag_zero(True)
+
+    assert cpu_registers_fixture._flags & 0x80
+
+    cpu_registers_fixture.update_flag_zero(False)
+
+    assert not cpu_registers_fixture._flags & 0x80
+
+
+def test_cpu_registers_update_flag_subtract(cpu_registers_fixture):
+    cpu_registers_fixture.update_flag_subtract(True)
+
+    assert cpu_registers_fixture._flags & 0x40
+
+    cpu_registers_fixture.update_flag_subtract(False)
+
+    assert not cpu_registers_fixture._flags & 0x40
+
+
+def test_cpu_registers_update_flag_half_carry(cpu_registers_fixture):
+    cpu_registers_fixture.update_flag_half_carry(True)
+
+    assert cpu_registers_fixture._flags & 0x20
+
+    cpu_registers_fixture.update_flag_half_carry(False)
+
+    assert not cpu_registers_fixture._flags & 0x20
+
+
+def test_cpu_registers_update_flag_carry(cpu_registers_fixture):
+    cpu_registers_fixture.update_flag_carry(True)
+
+    assert cpu_registers_fixture._flags & 0x10
+
+    cpu_registers_fixture.update_flag_carry(False)
+
+    assert not cpu_registers_fixture._flags & 0x10
+
+
+def test_cpu_registers_update_multiple_flags(cpu_registers_fixture):
+    cpu_registers_fixture.update_flags(zero=True, carry=True, subtract=True, half_carry=True)
+
+    assert cpu_registers_fixture._flags & 0x10
+    assert cpu_registers_fixture._flags & 0x20
+    assert cpu_registers_fixture._flags & 0x40
+    assert cpu_registers_fixture._flags & 0x80
+
+    cpu_registers_fixture.update_flags(zero=False, carry=False, subtract=False, half_carry=False)
+
+    assert cpu_registers_fixture._flags == 0
+
+
+def test_cpu_registers_read_flag_zero(cpu_registers_fixture):
+    assert not cpu_registers_fixture.read_flag_zero()
+
+    cpu_registers_fixture._flags |= 0x80
+
+    assert cpu_registers_fixture.read_flag_zero()
+
+
+def test_cpu_registers_read_flag_subtract(cpu_registers_fixture):
+    assert not cpu_registers_fixture.read_flag_subtract()
+
+    cpu_registers_fixture._flags |= 0x40
+
+    assert cpu_registers_fixture.read_flag_subtract()
+
+
+def test_cpu_registers_read_flag_half_carry(cpu_registers_fixture):
+    assert not cpu_registers_fixture.read_flag_half_carry()
+
+    cpu_registers_fixture._flags |= 0x20
+
+    assert cpu_registers_fixture.read_flag_half_carry()
+
+
+def test_cpu_registers_read_flag_carry(cpu_registers_fixture):
+    assert not cpu_registers_fixture.read_flag_carry()
+
+    cpu_registers_fixture._flags |= 0x10
+
+    assert cpu_registers_fixture.read_flag_carry()
