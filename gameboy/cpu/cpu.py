@@ -39,10 +39,13 @@ class CPU:
     def _execute_operation(self, op_code: int):
         pass
 
-    def get_registers(self):
+    def get_registers(self) -> CPURegisters:
         return self._registers
 
-    def get_cycle_clock(self):
+    def get_memory_unit(self) -> MemoryUnit:
+        return self._memory_unit
+
+    def get_cycle_clock(self) -> CycleClock:
         return self._cycle_clock
 
     def _handle_interrupts(self) -> None:

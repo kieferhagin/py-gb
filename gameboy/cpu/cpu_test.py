@@ -38,6 +38,10 @@ def test_cpu_get_registers(cpu_fixture):
     assert cpu_fixture.get_registers() == cpu_fixture._registers
 
 
+def test_cpu_get_memory_unit(cpu_fixture):
+    assert cpu_fixture.get_memory_unit() == cpu_fixture._memory_unit
+
+
 def test_cpu_get_cycle_clock(cpu_fixture):
     assert cpu_fixture.get_cycle_clock() == cpu_fixture._cycle_clock
 
