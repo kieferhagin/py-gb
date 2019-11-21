@@ -394,6 +394,17 @@ def test_cpu_instructions_add_8_bit_immediate(cpu_instructions_fixture):
     assert cpu_instructions_fixture._cpu._registers._register_a == 0x18
 
 
+def test_cpu_instructions_subtract_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_a = 10
+    cpu_instructions_fixture._cpu._registers._register_b = 9
+
+    cpu_instructions_fixture.subtract_8_bit_registers('a', 'b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 1
+    assert cpu_instructions_fixture._cpu._registers._register_b == 9
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
 def test_cpu_instructions_subtract_8_flags(cpu_instructions_fixture):
     cpu_instructions_fixture._cpu._registers._register_a = 0x01
     cpu_instructions_fixture._cpu._registers._register_b = 0x01
@@ -420,6 +431,35 @@ def test_cpu_instructions_subtract_8_flags(cpu_instructions_fixture):
 
     assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
     assert cpu_instructions_fixture._cpu._registers._register_a == 248
+    assert cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+
+
+def test_cpu_instructions_subtract_8_flags_compare(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_a = 0x01
+    cpu_instructions_fixture._cpu._registers._register_b = 0x01
+
+    cpu_instructions_fixture.subtract_8_bit_registers('a', 'b', compare_only=True)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0x01
+    assert cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0x00
+    cpu_instructions_fixture._cpu._registers._register_b = 0x01
+
+    cpu_instructions_fixture.subtract_8_bit_registers('a', 'b', compare_only=True)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0x00
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000100
+    cpu_instructions_fixture._cpu._registers._register_b = 0b00001100
+
+    cpu_instructions_fixture.subtract_8_bit_registers('a', 'b', compare_only=True)
+
+    assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000100
     assert cpu_instructions_fixture._cpu._registers.read_flag_subtract()
 
 
@@ -451,6 +491,14 @@ def test_cpu_instructions_subtract_8_bit_hl(cpu_instructions_fixture):
 
     cpu_instructions_fixture._cpu._registers._register_a = 12
     cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 5)
+
+    cpu_instructions_fixture.subtract_8_bit_hl_memory_to_register('a', compare_only=True)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 12
+
+    cpu_instructions_fixture._cpu._registers._register_a = 12
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
     cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 7)
     cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
 
@@ -471,6 +519,14 @@ def test_cpu_instructions_subtract_8_bit_immediate(cpu_instructions_fixture):
 
     cpu_instructions_fixture._cpu._registers._register_a = 12
     cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 7)
+
+    cpu_instructions_fixture.subtract_8_bit_immediate_to_register('a', compare_only=True)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 12
+
+    cpu_instructions_fixture._cpu._registers._register_a = 12
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
     cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 5)
     cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
 
@@ -478,6 +534,63 @@ def test_cpu_instructions_subtract_8_bit_immediate(cpu_instructions_fixture):
 
     assert cpu_instructions_fixture._cpu._registers._register_a == 6
 
+
+def test_cpu_instructions_increment_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_b = 12
+    cpu_instructions_fixture.increment_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 13
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_b = 255
+    cpu_instructions_fixture.increment_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 0
+    assert cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers.update_flag_half_carry(False)
+    cpu_instructions_fixture._cpu._registers._register_b = 15
+    cpu_instructions_fixture.increment_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 16
+    assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+
+def test_cpu_instructions_decrement_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_b = 12
+    cpu_instructions_fixture.decrement_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 11
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_b = 0
+    cpu_instructions_fixture.decrement_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 255
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_b = 1
+    cpu_instructions_fixture.decrement_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 0
+    assert cpu_instructions_fixture._cpu._registers.read_flag_zero()
+
+    cpu_instructions_fixture._cpu._registers.update_flag_half_carry(False)
+    cpu_instructions_fixture._cpu._registers._register_b = 16
+    cpu_instructions_fixture.decrement_8_bit_register('b')
+
+    assert cpu_instructions_fixture._cpu._registers._register_b == 15
+    assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
 
 
 def test_cpu_instructions_0x40_ld_b_b(cpu_instructions_fixture):
@@ -1431,4 +1544,164 @@ def test_cpu_instructions_0xDE_sub_8_bit_immediate_carry(cpu_instructions_fixtur
 
     cpu_instructions_fixture.subtract_8_bit_immediate_to_register.assert_called_once_with('a', with_carry_bit=True)
 
+
+def test_cpu_instructions_0x04_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x04)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('b')
+
+
+def test_cpu_instructions_0x0c_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x0c)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('c')
+
+
+def test_cpu_instructions_0x14_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x14)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('d')
+
+
+def test_cpu_instructions_0x1c_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x1c)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('e')
+
+
+def test_cpu_instructions_0x24_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x24)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('h')
+
+
+def test_cpu_instructions_0x2c_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x2c)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('l')
+
+
+def test_cpu_instructions_0x3c_inc_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x3c)
+
+    cpu_instructions_fixture.increment_8_bit_register.assert_called_once_with('a')
+
+
+def test_cpu_instructions_0x05_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x05)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('b')
+
+
+def test_cpu_instructions_0x0d_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x0D)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('c')
+
+
+def test_cpu_instructions_0x15_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x15)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('d')
+
+
+def test_cpu_instructions_0x1d_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x1D)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('e')
+
+
+def test_cpu_instructions_0x25_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x25)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('h')
+
+
+def test_cpu_instructions_0x2d_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x2D)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('l')
+
+
+def test_cpu_instructions_0x3d_dec_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x3D)
+
+    cpu_instructions_fixture.decrement_8_bit_register.assert_called_once_with('a')
+
+
+def test_cpu_instructions_0xB8_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xB8)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'b', compare_only=True)
+
+
+def test_cpu_instructions_0xB9_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xB9)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'c', compare_only=True)
+
+
+def test_cpu_instructions_0xBA_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xBA)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'd', compare_only=True)
+
+
+def test_cpu_instructions_0xBB_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xBB)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'e', compare_only=True)
+
+
+def test_cpu_instructions_0xBC_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xBC)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'h', compare_only=True)
+
+
+def test_cpu_instructions_0xBD_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xBD)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'l', compare_only=True)
+
+
+def test_cpu_instructions_0xBF_sub_8_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xBF)
+
+    cpu_instructions_fixture.subtract_8_bit_registers.assert_called_once_with('a', 'a', compare_only=True)
+
+
+def test_cpu_instructions_0xBE_sub_8_bit_hl(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_hl_memory_to_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xBE)
+
+    cpu_instructions_fixture.subtract_8_bit_hl_memory_to_register.assert_called_once_with('a', compare_only=True)
+
+
+def test_cpu_instructions_0xFE_compare_8_bit_immediate(cpu_instructions_fixture):
+    cpu_instructions_fixture.subtract_8_bit_immediate_to_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xFE)
+
+    cpu_instructions_fixture.subtract_8_bit_immediate_to_register.assert_called_once_with('a', compare_only=True)
 

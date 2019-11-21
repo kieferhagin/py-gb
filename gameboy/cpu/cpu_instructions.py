@@ -302,6 +302,58 @@ class CPUInstructions:
         if op_code == 0xDE:
             return self.subtract_8_bit_immediate_to_register('a', with_carry_bit=True)
 
+        # ~`~ Increment ~`~
+        if op_code == 0x04:
+            return self.increment_8_bit_register('b')
+        if op_code == 0x0C:
+            return self.increment_8_bit_register('c')
+        if op_code == 0x14:
+            return self.increment_8_bit_register('d')
+        if op_code == 0x1C:
+            return self.increment_8_bit_register('e')
+        if op_code == 0x24:
+            return self.increment_8_bit_register('h')
+        if op_code == 0x2C:
+            return self.increment_8_bit_register('l')
+        if op_code == 0x3C:
+            return self.increment_8_bit_register('a')
+
+        # ~`~ Decrement ~`~
+        if op_code == 0x05:
+            return self.decrement_8_bit_register('b')
+        if op_code == 0x0D:
+            return self.decrement_8_bit_register('c')
+        if op_code == 0x15:
+            return self.decrement_8_bit_register('d')
+        if op_code == 0x1D:
+            return self.decrement_8_bit_register('e')
+        if op_code == 0x25:
+            return self.decrement_8_bit_register('h')
+        if op_code == 0x2D:
+            return self.decrement_8_bit_register('l')
+        if op_code == 0x3D:
+            return self.decrement_8_bit_register('a')
+
+        # ~`~ Compare ~`~
+        if op_code == 0xB8:
+            return self.subtract_8_bit_registers('a', 'b', compare_only=True)
+        if op_code == 0xB9:
+            return self.subtract_8_bit_registers('a', 'c', compare_only=True)
+        if op_code == 0xBA:
+            return self.subtract_8_bit_registers('a', 'd', compare_only=True)
+        if op_code == 0xBB:
+            return self.subtract_8_bit_registers('a', 'e', compare_only=True)
+        if op_code == 0xBC:
+            return self.subtract_8_bit_registers('a', 'h', compare_only=True)
+        if op_code == 0xBD:
+            return self.subtract_8_bit_registers('a', 'l', compare_only=True)
+        if op_code == 0xBF:
+            return self.subtract_8_bit_registers('a', 'a', compare_only=True)
+        if op_code == 0xBE:
+            return self.subtract_8_bit_hl_memory_to_register('a', compare_only=True)
+        if op_code == 0xFE:
+            return self.subtract_8_bit_immediate_to_register('a', compare_only=True)
+
         raise NotImplementedError(f'Opcode {op_code} not implemented.')
 
     # Move program counter to a address in memory unconditionally
@@ -508,32 +560,6 @@ class CPUInstructions:
 
         self._cpu.get_cycle_clock().tick(2)
 
-    # sub|c $reg8, $reg8: Subtract two registers. Optionally subtract the carry flag bit as well.
-    def subtract_8_bit_registers(self, result_register: str, subtract_register: str, with_carry_bit: bool = False):
-        subtract_register_name = self._get_8_bit_register_name_from_key(subtract_register)
-        subtract_register_value = self._get_8_bit_register_value(subtract_register_name)
-
-        self._subtract_8_bit(subtract_register_value, result_register, with_carry_bit=with_carry_bit)
-
-        self._cpu.get_cycle_clock().tick(1)
-
-    # sub|c $reg8, (hl): Subtract value of memory at hl from 8 bit register. Optional carry bit.
-    def subtract_8_bit_hl_memory_to_register(self, result_register: str, with_carry_bit: bool = False):
-        memory_address = self._cpu.get_registers().read_hl()
-        memory_value_to_subtract = self._cpu.get_memory_unit().read_byte(memory_address)
-
-        self._subtract_8_bit(memory_value_to_subtract, result_register, with_carry_bit=with_carry_bit)
-
-        self._cpu.get_cycle_clock().tick(2)
-
-    # sub|c $reg8, imm8: Subtract value of immediate from 8 bit register. Optional carry bit.
-    def subtract_8_bit_immediate_to_register(self, result_register: str, with_carry_bit: bool = False):
-        immediate_value = self._cpu.read_immediate_byte()
-
-        self._subtract_8_bit(immediate_value, result_register, with_carry_bit=with_carry_bit)
-
-        self._cpu.get_cycle_clock().tick(2)
-
     def _add_8_bit(self, add_value: int, result_register: str, with_carry_bit: bool=False):
         result_register_name = self._get_8_bit_register_name_from_key(result_register)
         result_register_value = self._get_8_bit_register_value(result_register_name)
@@ -553,7 +579,42 @@ class CPUInstructions:
 
         self._set_8_bit_register_value(result_register_name, sum_ & 0xFF)
 
-    def _subtract_8_bit(self, subtract_value: int, result_register: str, with_carry_bit: bool=False):
+    # sub|c $reg8, $reg8: Subtract two registers. Optionally subtract the carry flag bit as well.
+    # Setting compare_only will only modify flags and not actually modify register
+    def subtract_8_bit_registers(self, result_register: str, subtract_register: str,
+                                 with_carry_bit: bool = False, compare_only: bool = False):
+        subtract_register_name = self._get_8_bit_register_name_from_key(subtract_register)
+        subtract_register_value = self._get_8_bit_register_value(subtract_register_name)
+
+        self._subtract_8_bit(subtract_register_value, result_register,
+                             with_carry_bit=with_carry_bit, compare_only=compare_only)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # sub|c $reg8, (hl): Subtract value of memory at hl from 8 bit register. Optional carry bit.
+    # Setting compare_only will only modify flags and not actually modify register
+    def subtract_8_bit_hl_memory_to_register(self, result_register: str,
+                                             with_carry_bit: bool = False, compare_only: bool = False):
+        memory_address = self._cpu.get_registers().read_hl()
+        memory_value_to_subtract = self._cpu.get_memory_unit().read_byte(memory_address)
+
+        self._subtract_8_bit(memory_value_to_subtract, result_register,
+                             with_carry_bit=with_carry_bit, compare_only=compare_only)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # sub|c $reg8, imm8: Subtract value of immediate from 8 bit register. Optional carry bit.
+    # Setting compare_only will only modify flags and not actually modify register
+    def subtract_8_bit_immediate_to_register(self, result_register: str,
+                                             with_carry_bit: bool = False, compare_only: bool = False):
+        immediate_value = self._cpu.read_immediate_byte()
+
+        self._subtract_8_bit(immediate_value, result_register, with_carry_bit=with_carry_bit, compare_only=compare_only)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    def _subtract_8_bit(self, subtract_value: int, result_register: str,
+                        with_carry_bit: bool=False, compare_only: bool=False):
         result_register_name = self._get_8_bit_register_name_from_key(result_register)
         result_register_value = self._get_8_bit_register_value(result_register_name)
 
@@ -569,7 +630,42 @@ class CPUInstructions:
             half_carry=(result_register_value & 0x0F) < (subtract_value & 0x0F),
             carry=subtract_value > result_register_value)
 
-        self._set_8_bit_register_value(result_register_name, sum_ & 0xFF)
+        if not compare_only:
+            self._set_8_bit_register_value(result_register_name, sum_ & 0xFF)
+
+    # inc $reg8: Increment 8 bit register
+    def increment_8_bit_register(self, increment_register: str):
+        register_name = self._get_8_bit_register_name_from_key(increment_register)
+        register_value = self._get_8_bit_register_value(register_name)
+        result = (register_value + 1) & 0xFF
+
+        self._set_8_bit_register_value(register_name, result)
+
+        self._cpu.get_registers().update_flags(
+            zero=result == 0,
+            subtract=False,
+            half_carry=(register_value & 0xF) == 0xF,
+            carry=self._cpu.get_registers().read_flag_carry() > 0
+        )
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # dec $reg8: Decrement 8 bit register
+    def decrement_8_bit_register(self, decrement_register: str):
+        register_name = self._get_8_bit_register_name_from_key(decrement_register)
+        register_value = self._get_8_bit_register_value(register_name)
+        result = (register_value - 1) & 0xFF
+
+        self._set_8_bit_register_value(register_name, result)
+
+        self._cpu.get_registers().update_flags(
+            zero=result == 0,
+            subtract=True,
+            half_carry=(register_value & 0xF) == 0x0,
+            carry=self._cpu.get_registers().read_flag_carry() > 0
+        )
+
+        self._cpu.get_cycle_clock().tick(1)
 
     def _get_8_bit_register_name_from_key(self, register_key: str) -> str:
         register_name = f'_register_{register_key}'
