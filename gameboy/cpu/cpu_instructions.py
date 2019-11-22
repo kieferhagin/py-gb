@@ -354,6 +354,62 @@ class CPUInstructions:
         if op_code == 0xFE:
             return self.subtract_8_bit_immediate_to_register('a', compare_only=True)
 
+        # ~`~ Bitwise ~`~
+        if op_code == 0xA0:
+            return self.bitwise_and_8_bit_register('a', 'b')
+        if op_code == 0xA1:
+            return self.bitwise_and_8_bit_register('a', 'c')
+        if op_code == 0xA2:
+            return self.bitwise_and_8_bit_register('a', 'd')
+        if op_code == 0xA3:
+            return self.bitwise_and_8_bit_register('a', 'e')
+        if op_code == 0xA4:
+            return self.bitwise_and_8_bit_register('a', 'h')
+        if op_code == 0xA5:
+            return self.bitwise_and_8_bit_register('a', 'l')
+        if op_code == 0xA7:
+            return self.bitwise_and_8_bit_register('a', 'a')
+        if op_code == 0xB0:
+            return self.bitwise_or_8_bit_register('a', 'b')
+        if op_code == 0xB1:
+            return self.bitwise_or_8_bit_register('a', 'c')
+        if op_code == 0xB2:
+            return self.bitwise_or_8_bit_register('a', 'd')
+        if op_code == 0xB3:
+            return self.bitwise_or_8_bit_register('a', 'e')
+        if op_code == 0xB4:
+            return self.bitwise_or_8_bit_register('a', 'h')
+        if op_code == 0xB5:
+            return self.bitwise_or_8_bit_register('a', 'l')
+        if op_code == 0xB7:
+            return self.bitwise_or_8_bit_register('a', 'a')
+        if op_code == 0xA8:
+            return self.bitwise_xor_8_bit_register('a', 'b')
+        if op_code == 0xA9:
+            return self.bitwise_xor_8_bit_register('a', 'c')
+        if op_code == 0xAA:
+            return self.bitwise_xor_8_bit_register('a', 'd')
+        if op_code == 0xAB:
+            return self.bitwise_xor_8_bit_register('a', 'e')
+        if op_code == 0xAC:
+            return self.bitwise_xor_8_bit_register('a', 'h')
+        if op_code == 0xAD:
+            return self.bitwise_xor_8_bit_register('a', 'l')
+        if op_code == 0xAF:
+            return self.bitwise_xor_8_bit_register('a', 'a')
+        if op_code == 0xA6:
+            return self.bitwise_and_8_bit_register_with_memory('a', 'hl')
+        if op_code == 0xB6:
+            return self.bitwise_or_8_bit_register_with_memory('a', 'hl')
+        if op_code == 0xAE:
+            return self.bitwise_xor_8_bit_register_with_memory('a', 'hl')
+        if op_code == 0xE6:
+            return self.bitwise_and_8_bit_register_with_immediate_byte('a')
+        if op_code == 0xF6:
+            return self.bitwise_or_8_bit_register_with_immediate_byte('a')
+        if op_code == 0xEE:
+            return self.bitwise_xor_8_bit_register_with_immediate_byte('a')
+
         raise NotImplementedError(f'Opcode {op_code} not implemented.')
 
     # Move program counter to a address in memory unconditionally
@@ -666,6 +722,123 @@ class CPUInstructions:
         )
 
         self._cpu.get_cycle_clock().tick(1)
+
+    # and $reg8, $reg8: bitwise AND two registers together
+    def bitwise_and_8_bit_register(self, result_register: str, bitwise_register: str):
+        bitwise_register_name = self._get_8_bit_register_name_from_key(bitwise_register)
+        bitwise_register_value = self._get_8_bit_register_value(bitwise_register_name)
+
+        self._bitwise_and_8_bit_register(result_register, bitwise_register_value)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # and $reg8, ($reg16): bitwise AND 8 bit register and byte at memory location
+    def bitwise_and_8_bit_register_with_memory(self, result_register: str, bitwise_register_16: str='hl'):
+        bitwise_memory_address = self._get_16_bit_register_value(bitwise_register_16)
+        bitwise_memory_address_value = self._cpu.get_memory_unit().read_byte(bitwise_memory_address)
+
+        self._bitwise_and_8_bit_register(result_register, bitwise_memory_address_value)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # and $reg8, imm8: bitwise AND 8 bit register with immediate
+    def bitwise_and_8_bit_register_with_immediate_byte(self, result_register: str):
+        self._bitwise_and_8_bit_register(result_register, self._cpu.read_immediate_byte())
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    def _bitwise_and_8_bit_register(self, result_register: str, bitwise_value: int):
+        result_register_name = self._get_8_bit_register_name_from_key(result_register)
+
+        result_register_value = self._get_8_bit_register_value(result_register_name)
+        bitwise_result = result_register_value & bitwise_value
+
+        self._set_8_bit_register_value(result_register_name, bitwise_result)
+
+        self._cpu.get_registers().update_flags(
+            zero=bitwise_result == 0,
+            subtract=False,
+            half_carry=True,
+            carry=False
+        )
+
+    # or $reg8, $reg8: bitwise OR two registers together
+    def bitwise_or_8_bit_register(self, result_register: str, bitwise_register: str):
+        bitwise_register_name = self._get_8_bit_register_name_from_key(bitwise_register)
+        bitwise_register_value = self._get_8_bit_register_value(bitwise_register_name)
+
+        self._bitwise_or_8_bit_register(result_register, bitwise_register_value)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # or $reg8, $reg8: bitwise OR 8 bit register and byte at memory location
+    def bitwise_or_8_bit_register_with_memory(self, result_register: str, bitwise_register_16: str='hl'):
+        bitwise_memory_address = self._get_16_bit_register_value(bitwise_register_16)
+        bitwise_memory_address_value = self._cpu.get_memory_unit().read_byte(bitwise_memory_address)
+
+        self._bitwise_or_8_bit_register(result_register, bitwise_memory_address_value)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # or $reg8, $reg8: bitwise OR 8 bit register with immediate
+    def bitwise_or_8_bit_register_with_immediate_byte(self, result_register: str):
+        self._bitwise_or_8_bit_register(result_register, self._cpu.read_immediate_byte())
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    def _bitwise_or_8_bit_register(self, result_register: str, bitwise_register_value: int):
+        result_register_name = self._get_8_bit_register_name_from_key(result_register)
+
+        result_register_value = self._get_8_bit_register_value(result_register_name)
+        bitwise_result = result_register_value | bitwise_register_value
+
+        self._set_8_bit_register_value(result_register_name, bitwise_result)
+
+        self._cpu.get_registers().update_flags(
+            zero=bitwise_result == 0,
+            subtract=False,
+            half_carry=False,
+            carry=False
+        )
+
+    # Xor $reg8, $reg8: bitwise XOR two registers together
+    def bitwise_xor_8_bit_register(self, result_register: str, bitwise_register: str):
+        bitwise_register_name = self._get_8_bit_register_name_from_key(bitwise_register)
+        bitwise_register_value = self._get_8_bit_register_value(bitwise_register_name)
+
+        self._bitwise_xor_8_bit_register(result_register, bitwise_register_value)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # Xor $reg8, $reg8: bitwise XOR 8 bit register and byte at memory location
+    def bitwise_xor_8_bit_register_with_memory(self, result_register: str, bitwise_register_16: str='hl'):
+        bitwise_memory_address = self._get_16_bit_register_value(bitwise_register_16)
+        bitwise_memory_address_value = self._cpu.get_memory_unit().read_byte(bitwise_memory_address)
+
+        self._bitwise_xor_8_bit_register(result_register, bitwise_memory_address_value)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # Xor $reg8, $reg8: bitwise XOR 8 bit register with immediate
+    def bitwise_xor_8_bit_register_with_immediate_byte(self, result_register: str):
+        self._bitwise_xor_8_bit_register(result_register, self._cpu.read_immediate_byte())
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    def _bitwise_xor_8_bit_register(self, result_register: str, bitwise_value: int):
+        result_register_name = self._get_8_bit_register_name_from_key(result_register)
+        result_register_value = self._get_8_bit_register_value(result_register_name)
+
+        bitwise_result = result_register_value ^ bitwise_value
+
+        self._set_8_bit_register_value(result_register_name, bitwise_result)
+
+        self._cpu.get_registers().update_flags(
+            zero=bitwise_result == 0,
+            subtract=False,
+            half_carry=False,
+            carry=False
+        )
 
     def _get_8_bit_register_name_from_key(self, register_key: str) -> str:
         register_name = f'_register_{register_key}'
