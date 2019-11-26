@@ -409,6 +409,16 @@ class CPUInstructions:
             return self.bitwise_or_8_bit_register_with_immediate_byte('a')
         if op_code == 0xEE:
             return self.bitwise_xor_8_bit_register_with_immediate_byte('a')
+        if op_code == 0x07:
+            return self.rotate_8_bit_register_left('a')
+        if op_code == 0x0F:
+            return self.rotate_8_bit_register_right('a')
+        if op_code == 0x17:
+            return self.rotate_8_bit_register_left('a', with_carry_bit=True)
+        if op_code == 0x1F:
+            return self.rotate_8_bit_register_right('a', with_carry_bit=True)
+        if op_code == 0x2F:
+            return self.complement_8_bit_register('a')
 
         raise NotImplementedError(f'Opcode {op_code} not implemented.')
 
@@ -839,6 +849,144 @@ class CPUInstructions:
             half_carry=False,
             carry=False
         )
+
+    # rl(c) $reg8: Rotate 8 bit register left
+    # with_carry_bit will optionally consider the carry flag as an extra bit
+    def rotate_8_bit_register_left(self, result_register: str, with_carry_bit: bool=False):
+        result_register_name = self._get_8_bit_register_name_from_key(result_register)
+        result_register_value = self._get_8_bit_register_value(result_register_name)
+        carry_bit = self._cpu.get_registers().read_flag_carry()
+
+        self._cpu.get_registers().update_flags(
+            zero=False,
+            subtract=False,
+            half_carry=False,
+            carry=(result_register_value & 0x80) > 0)
+
+        if with_carry_bit:
+            rotated_register_value = (result_register_value << 1) | (0x01 if carry_bit else 0x00)
+        else:
+            rotated_register_value = (result_register_value << 1) | (result_register_value >> 7)
+
+        self._set_8_bit_register_value(result_register_name, rotated_register_value & 0xFF)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # rrc $reg8: Rotate 8 bit register right
+    def rotate_8_bit_register_right(self, result_register: str, with_carry_bit: bool=False):
+        result_register_name = self._get_8_bit_register_name_from_key(result_register)
+        result_register_value = self._get_8_bit_register_value(result_register_name)
+        carry_bit = self._cpu.get_registers().read_flag_carry()
+
+        self._cpu.get_registers().update_flags(
+            zero=False,
+            subtract=False,
+            half_carry=False,
+            carry=(result_register_value & 0x01) > 0)
+
+        if with_carry_bit:
+            rotated_register_value = (result_register_value >> 1) | (0x80 if carry_bit else 0x00)
+        else:
+            rotated_register_value = (result_register_value >> 1) | (result_register_value << 7)
+
+        self._set_8_bit_register_value(result_register_name, rotated_register_value & 0xFF)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    # cpl reg8: invert all bits in a register
+    def complement_8_bit_register(self, result_register: str):
+        self._cpu.get_registers().update_flag_subtract(False)
+        self._cpu.get_registers().update_flag_half_carry(False)
+
+        register_name = self._get_8_bit_register_name_from_key(result_register)
+        register_value = self._get_8_bit_register_value(register_name)
+
+        self._set_8_bit_register_value(register_name, register_value ^ 0xFF)
+
+    def execute_extended_operation(self):
+        opcode = self._cpu.read_immediate_byte()
+
+        operation = opcode >> 6
+        bit_index_or_sub_op = (opcode >> 3) & 0x07
+        register = opcode & 0x07
+
+        if operation == 0:  # Shift/rotate and swap
+            if bit_index_or_sub_op == 0:  # rlc rN
+                return self._extended_op_rotate_left(register)
+
+        if operation == 1:  # Read bit from register: bit n, rN
+            pass
+
+        if operation == 2:  # flip bit of register: res n, rN
+            pass
+
+        if operation == 3:  # set bit of register: set n, rN
+            pass
+
+        raise NotImplementedError(f'Unidentified extended opcode: {opcode}')
+
+    def _extended_op_rotate_left(self, register_index: int):
+        value = self._get_extended_op_register_value(register_index)
+
+        self._cpu.get_registers().update_flags(
+            zero=value == 0,
+            subtract=False,
+            half_carry=False,
+            carry=(value & 0x80) > 0
+        )
+
+        shifted_value = (value << 1) | (value >> 7)
+        self._set_extended_op_register_value(register_index, shifted_value & 255)
+
+        self._cpu.get_cycle_clock().tick(4 if register_index == 6 else 2)  # writing to (HL) takes 2 extra cycles
+
+    def _get_extended_op_register_value(self, register_index: int) -> int:
+        if register_index == 0:
+            return self._get_8_bit_register_value('_register_b')
+        if register_index == 1:
+            return self._get_8_bit_register_value('_register_c')
+        if register_index == 2:
+            return self._get_8_bit_register_value('_register_d')
+        if register_index == 3:
+            return self._get_8_bit_register_value('_register_e')
+        if register_index == 4:
+            return self._get_8_bit_register_value('_register_h')
+        if register_index == 5:
+            return self._get_8_bit_register_value('_register_l')
+        if register_index == 6:
+            return self._cpu.get_memory_unit().read_byte(self._cpu.get_registers().read_hl())
+        if register_index == 7:
+            return self._get_8_bit_register_value('_register_a')
+
+        raise NotImplementedError(f'register_index {register_index} is out of range')
+
+    def _set_extended_op_register_value(self, register_index: int, register_value: int):
+        if register_index == 0:
+            self._set_8_bit_register_value('_register_b', register_value)
+            return
+        if register_index == 1:
+            self._set_8_bit_register_value('_register_c', register_value)
+            return
+        if register_index == 2:
+            self._set_8_bit_register_value('_register_d', register_value)
+            return
+        if register_index == 3:
+            self._set_8_bit_register_value('_register_e', register_value)
+            return
+        if register_index == 4:
+            self._set_8_bit_register_value('_register_h', register_value)
+            return
+        if register_index == 5:
+            self._set_8_bit_register_value('_register_l', register_value)
+            return
+        if register_index == 6:
+            self._cpu.get_memory_unit().write_byte(self._cpu.get_registers().read_hl(), register_value)
+            return
+        if register_index == 7:
+            self._set_8_bit_register_value('_register_a', register_value)
+            return
+
+        raise NotImplementedError(f'register_index {register_index} is out of range')
 
     def _get_8_bit_register_name_from_key(self, register_key: str) -> str:
         register_name = f'_register_{register_key}'

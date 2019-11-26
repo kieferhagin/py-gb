@@ -830,6 +830,156 @@ def test_cpu_instructions_bitwise_xor_with_immediate(cpu_instructions_fixture):
     assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
 
 
+def test_cpu_instructions_rotate_left(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000001
+
+    cpu_instructions_fixture.rotate_8_bit_register_left('a')
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000010
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0b10000000
+
+    cpu_instructions_fixture.rotate_8_bit_register_left('a')
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000001
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000001
+
+    cpu_instructions_fixture.rotate_8_bit_register_left('a', with_carry_bit=True)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000011
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+
+def test_cpu_instructions_rotate_right(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000010
+
+    cpu_instructions_fixture.rotate_8_bit_register_right('a')
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000001
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000001
+
+    cpu_instructions_fixture.rotate_8_bit_register_right('a')
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b10000000
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000010
+
+    cpu_instructions_fixture.rotate_8_bit_register_right('a', with_carry_bit=True)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b10000001
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+
+def test_cpu_instructions_complement(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_a = 0b10101010
+
+    cpu_instructions_fixture.complement_8_bit_register('a')
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b01010101
+
+
+def test_cpu_instructions_get_extended_op_register_value(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 0x31)
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+
+    cpu_instructions_fixture._cpu._registers._register_a = 10
+    cpu_instructions_fixture._cpu._registers._register_b = 2
+    cpu_instructions_fixture._cpu._registers._register_c = 3
+    cpu_instructions_fixture._cpu._registers._register_d = 4
+    cpu_instructions_fixture._cpu._registers._register_e = 5
+
+    assert cpu_instructions_fixture._get_extended_op_register_value(0) == 2
+    assert cpu_instructions_fixture._get_extended_op_register_value(1) == 3
+    assert cpu_instructions_fixture._get_extended_op_register_value(2) == 4
+    assert cpu_instructions_fixture._get_extended_op_register_value(3) == 5
+    assert cpu_instructions_fixture._get_extended_op_register_value(4) == 192
+    assert cpu_instructions_fixture._get_extended_op_register_value(5) == 0
+    assert cpu_instructions_fixture._get_extended_op_register_value(6) == 0x31
+    assert cpu_instructions_fixture._get_extended_op_register_value(7) == 10
+
+
+def test_cpu_instructions_set_extended_op_register_value(cpu_instructions_fixture):
+    cpu_instructions_fixture._set_extended_op_register_value(0, 2)
+    cpu_instructions_fixture._set_extended_op_register_value(1, 3)
+    cpu_instructions_fixture._set_extended_op_register_value(2, 4)
+    cpu_instructions_fixture._set_extended_op_register_value(3, 5)
+    cpu_instructions_fixture._set_extended_op_register_value(4, 192)
+    cpu_instructions_fixture._set_extended_op_register_value(5, 0)
+    cpu_instructions_fixture._set_extended_op_register_value(6, 0x31)
+    cpu_instructions_fixture._set_extended_op_register_value(7, 10)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 10
+    assert cpu_instructions_fixture._cpu._registers._register_b == 2
+    assert cpu_instructions_fixture._cpu._registers._register_c == 3
+    assert cpu_instructions_fixture._cpu._registers._register_d == 4
+    assert cpu_instructions_fixture._cpu._registers._register_e == 5
+    assert cpu_instructions_fixture._cpu._registers._register_h == 192
+    assert cpu_instructions_fixture._cpu._registers._register_l == 0
+    assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 0x31
+
+
+def test_cpu_instructions_extended_op_rotate_left(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers._register_a = 0b00000001
+
+    cpu_instructions_fixture._extended_op_rotate_left(7)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000010
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 2
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers._register_a = 0b10000000
+
+    cpu_instructions_fixture._extended_op_rotate_left(7)
+
+    assert cpu_instructions_fixture._cpu._registers._register_a == 0b00000001
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 0b10000000)
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+
+    cpu_instructions_fixture._extended_op_rotate_left(6)
+
+    assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 0b00000001
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_zero()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+
+
 def test_cpu_instructions_0x40_ld_b_b(cpu_instructions_fixture):
     cpu_instructions_fixture.load = mock.Mock()
     cpu_instructions_fixture.execute_instruction(0x40)
@@ -2129,4 +2279,39 @@ def test_cpu_instructions_0xEE_bitwise_xor_8_immediate(cpu_instructions_fixture)
     cpu_instructions_fixture.execute_instruction(0xEE)
 
     cpu_instructions_fixture.bitwise_xor_8_bit_register_with_immediate_byte.assert_called_once_with('a')
+
+
+def test_cpu_instructions_0x07_rotate_a_left(cpu_instructions_fixture):
+    cpu_instructions_fixture.rotate_8_bit_register_left = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x07)
+
+    cpu_instructions_fixture.rotate_8_bit_register_left.assert_called_once_with('a')
+
+
+def test_cpu_instructions_0x0F_rotate_a_right(cpu_instructions_fixture):
+    cpu_instructions_fixture.rotate_8_bit_register_right = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x0F)
+
+    cpu_instructions_fixture.rotate_8_bit_register_right.assert_called_once_with('a')
+
+
+def test_cpu_instructions_0x17_rotate_a_left_with_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.rotate_8_bit_register_left = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x17)
+
+    cpu_instructions_fixture.rotate_8_bit_register_left.assert_called_once_with('a', with_carry_bit=True)
+
+
+def test_cpu_instructions_0x1F_rotate_a_right_with_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.rotate_8_bit_register_right = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x1F)
+
+    cpu_instructions_fixture.rotate_8_bit_register_right.assert_called_once_with('a', with_carry_bit=True)
+
+
+def test_cpu_instructions_0x2F_complement_a(cpu_instructions_fixture):
+    cpu_instructions_fixture.complement_8_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x2F)
+
+    cpu_instructions_fixture.complement_8_bit_register.assert_called_once_with('a')
 
