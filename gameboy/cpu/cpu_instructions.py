@@ -420,6 +420,10 @@ class CPUInstructions:
         if op_code == 0x2F:
             return self.complement_8_bit_register('a')
 
+        # ~`~ Extended operations ~`~
+        if op_code == 0x2B:
+            return self.execute_extended_operation()
+
         raise NotImplementedError(f'Opcode {op_code} not implemented.')
 
     # Move program counter to a address in memory unconditionally
@@ -904,41 +908,135 @@ class CPUInstructions:
         self._set_8_bit_register_value(register_name, register_value ^ 0xFF)
 
     def execute_extended_operation(self):
+        operation, bit_index_or_sub_op, register = self._get_extended_operation_parts()
+
+        if operation == 0:  # Shift/rotate and swap
+            if bit_index_or_sub_op == 0:  # rlc rN
+                return self._extended_op_rotate_left(register)
+            if bit_index_or_sub_op == 1:  # rrc rN
+                return self._extended_op_rotate_right(register)
+            if bit_index_or_sub_op == 2:  # rl rN
+                return self._extended_op_rotate_left(register, with_carry_bit=True)
+            if bit_index_or_sub_op == 3:  # rr rN
+                return self._extended_op_rotate_right(register, with_carry_bit=True)
+            if bit_index_or_sub_op == 4:  # sla rN
+                return self._extended_op_rotate_left(register, shift_only=True)
+            if bit_index_or_sub_op == 5:  # sra rN
+                return self._extended_op_rotate_right(register, shift_only_special=True)
+            if bit_index_or_sub_op == 6:
+                return self._extended_op_swap(register)
+            if bit_index_or_sub_op == 7:
+                return self._extended_op_rotate_right(register, shift_only=True)
+
+        if operation == 1:  # Read bit from register: bit n, rN
+            return self._extended_op_read_bit(register, bit_index_or_sub_op)
+
+        if operation == 2:  # flip bit of register: res n, rN
+            return self._extended_op_flip_bit(register, bit_index_or_sub_op)
+
+        if operation == 3:  # set bit of register: set n, rN
+            return self._extended_op_set_bit(register, bit_index_or_sub_op)
+
+        raise NotImplementedError(f'Unidentified extended opcode: {operation}')
+
+    def _get_extended_operation_parts(self) -> (int, int, int):
         opcode = self._cpu.read_immediate_byte()
 
         operation = opcode >> 6
         bit_index_or_sub_op = (opcode >> 3) & 0x07
         register = opcode & 0x07
 
-        if operation == 0:  # Shift/rotate and swap
-            if bit_index_or_sub_op == 0:  # rlc rN
-                return self._extended_op_rotate_left(register)
+        return operation, bit_index_or_sub_op, register
 
-        if operation == 1:  # Read bit from register: bit n, rN
-            pass
-
-        if operation == 2:  # flip bit of register: res n, rN
-            pass
-
-        if operation == 3:  # set bit of register: set n, rN
-            pass
-
-        raise NotImplementedError(f'Unidentified extended opcode: {opcode}')
-
-    def _extended_op_rotate_left(self, register_index: int):
+    def _extended_op_rotate_left(self, register_index: int, with_carry_bit=False, shift_only=False):
         value = self._get_extended_op_register_value(register_index)
 
+        if shift_only:
+            shifted_value = value << 1
+        else:
+            if with_carry_bit:
+                shifted_value = (value << 1) | (1 if self._cpu.get_registers().read_flag_carry() else 0)
+            else:
+                shifted_value = (value << 1) | (value >> 7)
+
         self._cpu.get_registers().update_flags(
-            zero=value == 0,
+            zero=shifted_value == 0,
             subtract=False,
             half_carry=False,
             carry=(value & 0x80) > 0
         )
 
-        shifted_value = (value << 1) | (value >> 7)
         self._set_extended_op_register_value(register_index, shifted_value & 255)
 
         self._cpu.get_cycle_clock().tick(4 if register_index == 6 else 2)  # writing to (HL) takes 2 extra cycles
+
+    def _extended_op_rotate_right(self, register_index: int, with_carry_bit=False, shift_only=False, shift_only_special=False):
+        value = self._get_extended_op_register_value(register_index)
+
+        if shift_only:
+            shifted_value = (value >> 1)
+        elif shift_only_special:
+            shifted_value = (value >> 1) | (value & 0x80)
+        else:
+            if with_carry_bit:
+                shifted_value = (value >> 1) | (0x80 if self._cpu.get_registers().read_flag_carry() else 0)
+            else:
+                shifted_value = (value >> 1) | (value << 7)
+
+        self._cpu.get_registers().update_flags(
+            zero=shifted_value == 0,
+            subtract=False,
+            half_carry=False,
+            carry=(value & 0x01) > 0
+        )
+
+        self._set_extended_op_register_value(register_index, shifted_value & 255)
+
+        self._cpu.get_cycle_clock().tick(4 if register_index == 6 else 2)  # writing to (HL) takes 2 extra cycles
+
+    def _extended_op_swap(self, register_index: int):
+        value = self._get_extended_op_register_value(register_index)
+
+        swapped_value = (value >> 4) | (value << 4)
+
+        self._cpu.get_registers().update_flags(
+            zero=swapped_value == 0,
+            subtract=False,
+            half_carry=False,
+            carry=False
+        )
+
+        self._set_extended_op_register_value(register_index, swapped_value & 255)
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    def _extended_op_read_bit(self, register_index: int, bit_index: int):
+        value = self._get_extended_op_register_value(register_index)
+
+        self._cpu.get_registers().update_flags(
+            zero=(value & (1 << bit_index) == 0),
+            subtract=False,
+            half_carry=False,
+            carry=self._cpu.get_registers().read_flag_carry() > 0
+        )
+
+        self._cpu.get_cycle_clock().tick(2 if register_index != 6 else 3)  # reading (HL) takes 1 extra cycle
+
+    def _extended_op_flip_bit(self, register_index: int, bit_index: int):
+        value = self._get_extended_op_register_value(register_index)
+        flipped_bit_value = value & ~(1 << bit_index)
+
+        self._set_extended_op_register_value(register_index, flipped_bit_value)
+
+        self._cpu.get_cycle_clock().tick(2 if register_index != 6 else 4)  # writing (HL) takes 2 extra cycles
+
+    def _extended_op_set_bit(self, register_index: int, bit_index: int):
+        value = self._get_extended_op_register_value(register_index)
+        set_bit_value = value | (1 << bit_index)
+
+        self._set_extended_op_register_value(register_index, set_bit_value)
+
+        self._cpu.get_cycle_clock().tick(2 if register_index != 6 else 4)  # writing (HL) takes 2 extra cycles
 
     def _get_extended_op_register_value(self, register_index: int) -> int:
         if register_index == 0:
