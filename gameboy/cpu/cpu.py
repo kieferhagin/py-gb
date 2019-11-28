@@ -12,6 +12,8 @@ class CPU:
         self._cpu_instructions = CPUInstructions(self)
 
         self._is_halted = False
+        self._halt_bug = False
+        self._is_stopped = False
         self._interrupt_enable_pending = False
 
     def reset(self):
@@ -20,7 +22,16 @@ class CPU:
 
         self._is_halted = False
 
+    def get_interrupt_enable_pending(self) -> bool:
+        return self._interrupt_enable_pending
+
+    def set_interrupt_enable_pending(self, value: bool):
+        self._interrupt_enable_pending = value
+
     def step(self):
+        if self._is_stopped:
+            return
+
         if self._is_halted:
             self._cycle_clock.tick()
 
@@ -32,7 +43,9 @@ class CPU:
 
         op_code = self.read_immediate_byte()
 
-        # TODO: halt bug
+        if self._halt_bug:
+            self._halt_bug = False
+            self._registers.set_program_counter(self._registers.get_program_counter() - 1)
 
         self._execute_operation(op_code)
 
@@ -76,10 +89,11 @@ class CPU:
             # Disable interrupts before we "Call" into the handler. It is up to handler code to re-enable with reti
             self._registers.disable_interrupts()
 
-            # Call to the interrupt handler
-            self._cpu_instructions.call(0x40 + (interrupt_bit_index * 8))
+            self._cycle_clock.tick(2)
 
-            # TODO: execute "Call" Call(gb, 0x40 + (i * 8));
+            # Call to the interrupt handler
+            self._cpu_instructions.reset(0x40 + (interrupt_bit_index * 8))
+
             self._memory_unit \
                 .get_interrupt_flag_register() \
                 .clear_interrupt_by_bit(interrupt_bit)
@@ -104,6 +118,12 @@ class CPU:
 
     def set_halted(self):
         self._is_halted = True
+
+        if not self.get_registers().get_interrupts_enabled():
+            self._halt_bug = True
+
+    def stop(self):
+        self._is_stopped = True
 
     def read_immediate_word(self) -> int:
         low_byte = self.read_immediate_byte()

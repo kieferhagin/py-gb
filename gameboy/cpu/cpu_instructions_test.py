@@ -40,13 +40,13 @@ def test_cpu_instructions_is_carry(cpu_instructions_fixture):
     assert not cpu_instructions_fixture._is_carry(result=result, input_=input_)
 
 
-def test_cpu_instructions_call(cpu_instructions_fixture):
+def test_cpu_instructions_reset(cpu_instructions_fixture):
     cpu_instructions_fixture._cpu._registers._program_counter = 1
 
-    cpu_instructions_fixture.call(0x0040)
+    cpu_instructions_fixture.reset(0x0040)
     assert cpu_instructions_fixture._cpu._memory_unit.read_word(cpu_instructions_fixture._cpu._registers._stack_pointer) == 1
     assert cpu_instructions_fixture._cpu._registers._program_counter == 0x0040
-    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 5
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
 
 
 def test_cpu_instructions_load(cpu_instructions_fixture):
@@ -1166,6 +1166,494 @@ def test_cpu_instructions_extended_operation_set_bit(cpu_instructions_fixture):
 
     assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 0b00101010
     assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+
+
+def test_cpu_instructions_add_16_bit_registers(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.write_hl(1234)
+    cpu_instructions_fixture._cpu._registers.write_bc(1000)
+
+    cpu_instructions_fixture.add_16_bit_registers('hl', 'bc')
+
+    assert cpu_instructions_fixture._cpu._registers.read_hl() == 2234
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._registers.write_hl(0x0FFF)
+    cpu_instructions_fixture._cpu._registers.write_bc(0x0001)
+
+    cpu_instructions_fixture.add_16_bit_registers('hl', 'bc')
+
+    assert cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+    cpu_instructions_fixture._cpu._registers.write_hl(0xFFFF)
+    cpu_instructions_fixture._cpu._registers.write_bc(0x0001)
+
+    cpu_instructions_fixture.add_16_bit_registers('hl', 'bc')
+
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+
+
+def test_cpu_instructions_add_signed_immediate_to_16_bit_register(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.set_stack_pointer(1234)
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 135)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.add_signed_immediate_to_16_bit_register('sp')
+
+    assert cpu_instructions_fixture._cpu._registers.get_stack_pointer() == 1234 - 121
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+
+
+def test_cpu_instructions_increment_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.set_stack_pointer(1234)
+
+    cpu_instructions_fixture.increment_16_bit_register('sp')
+
+    assert cpu_instructions_fixture._cpu._registers.get_stack_pointer() == 1235
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 2
+
+    cpu_instructions_fixture._cpu._registers.set_stack_pointer(0xFFFF)
+
+    cpu_instructions_fixture.increment_16_bit_register('sp')
+
+    assert cpu_instructions_fixture._cpu._registers.get_stack_pointer() == 0
+
+
+def test_cpu_instructions_decrement_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.set_stack_pointer(1234)
+
+    cpu_instructions_fixture.decrement_16_bit_register('sp')
+
+    assert cpu_instructions_fixture._cpu._registers.get_stack_pointer() == 1233
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 2
+
+    cpu_instructions_fixture._cpu._registers.set_stack_pointer(0)
+
+    cpu_instructions_fixture.decrement_16_bit_register('sp')
+
+    assert cpu_instructions_fixture._cpu._registers.get_stack_pointer() == 0xFFFF
+
+
+def test_cpu_instructions_increment_memory_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 1)
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+
+    cpu_instructions_fixture.increment_memory_at_register('hl')
+
+    assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 2
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 0xFF)
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+
+    cpu_instructions_fixture.increment_memory_at_register('hl')
+
+    assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 0
+
+
+def test_cpu_instructions_decrement_memory_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 1)
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+
+    cpu_instructions_fixture.decrement_memory_at_register('hl')
+
+    assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 0
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 0x00)
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+
+    cpu_instructions_fixture.decrement_memory_at_register('hl')
+
+    assert cpu_instructions_fixture._cpu._memory_unit.read_byte(0xC000) == 0xFF
+
+
+def test_cpu_instructions_jump_16_bit_register(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.write_hl(0xC000)
+
+    cpu_instructions_fixture.jump_to_16_bit_register('hl')
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_jump_imm16(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.jump_to_immediate()
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+
+def test_cpu_instructions_jump_offset(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC001, 255)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC001
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC001
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 2
+
+
+def test_cpu_instructions_jump_imm16_conditional_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.jump_to_immediate(conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC002
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(True)
+
+    cpu_instructions_fixture.jump_to_immediate(conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(False)
+
+    cpu_instructions_fixture.jump_to_immediate(conditional_zero_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+
+
+def test_cpu_instructions_jump_offset_conditional_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 4)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True, conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC001
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 2
+
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 4)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(True)
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True, conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 4)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(False)
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True, conditional_zero_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+
+def test_cpu_instructions_jump_imm16_conditional_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.jump_to_immediate(conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC002
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+
+    cpu_instructions_fixture.jump_to_immediate(conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(False)
+
+    cpu_instructions_fixture.jump_to_immediate(conditional_carry_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 4
+    
+    
+def test_cpu_instructions_jump_relative_conditional_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 4)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True, conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC001
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 2
+
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 4)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True, conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_byte(0xC000, 4)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(False)
+
+    cpu_instructions_fixture.jump_to_immediate(relative=True, conditional_carry_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+
+def test_cpu_instructions_call_immediate(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.call_immediate()
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 5
+    assert cpu_instructions_fixture._cpu.pop_word_from_stack() == 0xC002
+
+
+def test_cpu_instructions_call_immediate_cond_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.call_immediate(conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC002
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(True)
+
+    cpu_instructions_fixture.call_immediate(conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 5
+    assert cpu_instructions_fixture._cpu.pop_word_from_stack() == 0xC002
+
+
+def test_cpu_instructions_call_immediate_cond_not_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(True)
+
+    cpu_instructions_fixture.call_immediate(conditional_zero_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC002
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(False)
+
+    cpu_instructions_fixture.call_immediate(conditional_zero_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 5
+    assert cpu_instructions_fixture._cpu.pop_word_from_stack() == 0xC002
+    
+
+def test_cpu_instructions_call_immediate_cond_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+
+    cpu_instructions_fixture.call_immediate(conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC002
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+
+    cpu_instructions_fixture.call_immediate(conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 5
+    assert cpu_instructions_fixture._cpu.pop_word_from_stack() == 0xC002
+
+
+def test_cpu_instructions_call_immediate_cond_not_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+
+    cpu_instructions_fixture.call_immediate(conditional_carry_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC002
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu._memory_unit.write_word(0xC000, 0xC005)
+    cpu_instructions_fixture._cpu._registers._program_counter = 0xC000
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(False)
+
+    cpu_instructions_fixture.call_immediate(conditional_carry_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC005
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 5
+    assert cpu_instructions_fixture._cpu.pop_word_from_stack() == 0xC002
+
+
+def test_cpu_instructions_return(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+
+    cpu_instructions_fixture.return_()
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+
+    cpu_instructions_fixture.return_(enable_interrupts=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._registers.get_interrupts_enabled()
+
+
+def test_cpu_instructions_return_cond_not_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(True)
+
+    cpu_instructions_fixture.return_(conditional_zero_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(False)
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+
+    cpu_instructions_fixture.return_(conditional_zero_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+    cpu_instructions_fixture._cpu._registers.update_flag_zero(True)
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+
+    cpu_instructions_fixture.return_(conditional_zero_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+    
+
+def test_cpu_instructions_return_cond_not_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+
+    cpu_instructions_fixture.return_(conditional_carry_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(False)
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+
+    cpu_instructions_fixture.return_(conditional_carry_flag=False)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+    cpu_instructions_fixture._cpu.push_word_to_stack(0xC000)
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+    cpu_instructions_fixture._cpu._cycle_clock.reset()
+
+    cpu_instructions_fixture.return_(conditional_carry_flag=True)
+
+    assert cpu_instructions_fixture._cpu._registers._program_counter == 0xC000
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 3
+
+
+def test_cpu_instructions_no_op(cpu_instructions_fixture):
+    cpu_instructions_fixture.no_op()
+
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_disable_interrupts(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._interrupt_enable_pending = True
+    cpu_instructions_fixture._cpu._registers._interrupts_enabled = True
+
+    cpu_instructions_fixture.disable_interrupts()
+
+    assert not cpu_instructions_fixture._cpu._interrupt_enable_pending
+    assert not cpu_instructions_fixture._cpu._registers._interrupts_enabled
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_stop(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu.stop = mock.Mock()
+
+    cpu_instructions_fixture.stop()
+
+    cpu_instructions_fixture._cpu.stop.assert_called_once()
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_enable_interrupts(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._interrupt_enable_pending = False
+
+    cpu_instructions_fixture.enable_interrupts()
+
+    assert cpu_instructions_fixture._cpu._interrupt_enable_pending
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_halt(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu.set_halted = mock.Mock()
+
+    cpu_instructions_fixture.halt()
+
+    cpu_instructions_fixture._cpu.set_halted.assert_called_once()
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_set_carry_flag(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.update_flag_subtract(True)
+    cpu_instructions_fixture._cpu._registers.update_flag_half_carry(True)
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(False)
+
+    cpu_instructions_fixture.set_carry_flag()
+
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert cpu_instructions_fixture._cpu._registers.read_flag_carry()
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
+
+
+def test_cpu_instructions_complement_carry_flag(cpu_instructions_fixture):
+    cpu_instructions_fixture._cpu._registers.update_flag_subtract(True)
+    cpu_instructions_fixture._cpu._registers.update_flag_half_carry(True)
+    cpu_instructions_fixture._cpu._registers.update_flag_carry(True)
+
+    cpu_instructions_fixture.complement_carry_flag()
+
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_subtract()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_half_carry()
+    assert not cpu_instructions_fixture._cpu._registers.read_flag_carry()
+    assert cpu_instructions_fixture._cpu._cycle_clock.get_total_machine_cycles() == 1
 
 
 def test_cpu_instructions_0x40_ld_b_b(cpu_instructions_fixture):
@@ -2504,8 +2992,379 @@ def test_cpu_instructions_0x2F_complement_a(cpu_instructions_fixture):
     cpu_instructions_fixture.complement_8_bit_register.assert_called_once_with('a')
 
 
-def test_cpu_instructions_0x2B_extended_operation(cpu_instructions_fixture):
+def test_cpu_instructions_0xCB_extended_operation(cpu_instructions_fixture):
     cpu_instructions_fixture.execute_extended_operation = mock.Mock()
-    cpu_instructions_fixture.execute_instruction(0x2B)
+    cpu_instructions_fixture.execute_instruction(0xCB)
 
     cpu_instructions_fixture.execute_extended_operation.assert_called_once()
+
+
+def test_cpu_instructions_0x09_add_16_bit_registers(cpu_instructions_fixture):
+    cpu_instructions_fixture.add_16_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x09)
+
+    cpu_instructions_fixture.add_16_bit_registers.assert_called_once_with('hl', 'bc')
+
+
+def test_cpu_instructions_0x19_add_16_bit_registers(cpu_instructions_fixture):
+    cpu_instructions_fixture.add_16_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x19)
+
+    cpu_instructions_fixture.add_16_bit_registers.assert_called_once_with('hl', 'de')
+
+
+def test_cpu_instructions_0x29_add_16_bit_registers(cpu_instructions_fixture):
+    cpu_instructions_fixture.add_16_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x29)
+
+    cpu_instructions_fixture.add_16_bit_registers.assert_called_once_with('hl', 'hl')
+
+
+def test_cpu_instructions_0x39_add_16_bit_registers(cpu_instructions_fixture):
+    cpu_instructions_fixture.add_16_bit_registers = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x39)
+
+    cpu_instructions_fixture.add_16_bit_registers.assert_called_once_with('hl', 'sp')
+
+
+def test_cpu_instructions_0xE8_add_16_bit_registers_imm8i(cpu_instructions_fixture):
+    cpu_instructions_fixture.add_signed_immediate_to_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xE8)
+
+    cpu_instructions_fixture.add_signed_immediate_to_16_bit_register.assert_called_once_with('sp')
+
+
+def test_cpu_instructions_0x03_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x03)
+
+    cpu_instructions_fixture.increment_16_bit_register.assert_called_once_with('bc')
+
+
+def test_cpu_instructions_0x13_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x13)
+
+    cpu_instructions_fixture.increment_16_bit_register.assert_called_once_with('de')
+
+
+def test_cpu_instructions_0x23_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x23)
+
+    cpu_instructions_fixture.increment_16_bit_register.assert_called_once_with('hl')
+
+
+def test_cpu_instructions_0x33_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x33)
+
+    cpu_instructions_fixture.increment_16_bit_register.assert_called_once_with('sp')
+
+def test_cpu_instructions_0x0B_dec_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x0B)
+
+    cpu_instructions_fixture.decrement_16_bit_register.assert_called_once_with('bc')
+
+
+def test_cpu_instructions_0x1B_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x1B)
+
+    cpu_instructions_fixture.decrement_16_bit_register.assert_called_once_with('de')
+
+
+def test_cpu_instructions_0x2B_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x2B)
+
+    cpu_instructions_fixture.decrement_16_bit_register.assert_called_once_with('hl')
+
+
+def test_cpu_instructions_0x3B_inc_16_bit(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x3B)
+
+    cpu_instructions_fixture.decrement_16_bit_register.assert_called_once_with('sp')
+
+
+def test_cpu_instructions_0x34_inc_16_bit_memory(cpu_instructions_fixture):
+    cpu_instructions_fixture.increment_memory_at_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x34)
+
+    cpu_instructions_fixture.increment_memory_at_register.assert_called_once_with('hl')
+
+
+def test_cpu_instructions_0x35_dec_16_bit_memory(cpu_instructions_fixture):
+    cpu_instructions_fixture.decrement_memory_at_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x35)
+
+    cpu_instructions_fixture.decrement_memory_at_register.assert_called_once_with('hl')
+
+
+def test_cpu_instructions_0xE9_jump_hl(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_16_bit_register = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xE9)
+
+    cpu_instructions_fixture.jump_to_16_bit_register.assert_called_once_with('hl')
+
+
+def test_cpu_instructions_0xC3_jump_imm16(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC3)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once()
+
+
+def test_cpu_instructions_0xC2_jump_cond_not_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC2)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(conditional_zero_flag=False)
+
+
+def test_cpu_instructions_0xCA_jump_cond_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xCA)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(conditional_zero_flag=True)
+
+
+def test_cpu_instructions_0xD2_jump_cond_not_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xD2)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(conditional_carry_flag=False)
+
+
+def test_cpu_instructions_0xDA_jump_cond_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xDA)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(conditional_carry_flag=True)
+
+
+def test_cpu_instructions_0x18_jump_relative(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x18)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(relative=True)
+
+
+def test_cpu_instructions_0x20_jump_relative_cond_not_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x20)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(relative=True, conditional_zero_flag=False)
+
+
+def test_cpu_instructions_0x28_jump_relative_cond_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x28)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(relative=True, conditional_zero_flag=True)
+
+
+def test_cpu_instructions_0x30_jump_relative_cond_not_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x30)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(relative=True, conditional_carry_flag=False)
+
+
+def test_cpu_instructions_0x38_jump_relative_cond_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.jump_to_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x38)
+
+    cpu_instructions_fixture.jump_to_immediate.assert_called_once_with(relative=True, conditional_carry_flag=True)
+
+
+def test_cpu_instructions_0xC4_call_cond_not_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture.call_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC4)
+
+    cpu_instructions_fixture.call_immediate.assert_called_once_with(conditional_zero_flag=False)
+
+
+def test_cpu_instructions_0xC4_call_cond_zero(cpu_instructions_fixture):
+    cpu_instructions_fixture.call_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xCC)
+
+    cpu_instructions_fixture.call_immediate.assert_called_once_with(conditional_zero_flag=True)
+
+
+def test_cpu_instructions_0xD4_call_cond_not_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.call_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xD4)
+
+    cpu_instructions_fixture.call_immediate.assert_called_once_with(conditional_carry_flag=False)
+
+
+def test_cpu_instructions_0xDC_call_cond_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.call_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xDC)
+
+    cpu_instructions_fixture.call_immediate.assert_called_once_with(conditional_carry_flag=True)
+
+
+def test_cpu_instructions_0xCD_call_cond_carry(cpu_instructions_fixture):
+    cpu_instructions_fixture.call_immediate = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xCD)
+
+    cpu_instructions_fixture.call_immediate.assert_called_once()
+
+
+def test_cpu_instructions_0xC7_reset_00(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC7)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x00)
+
+
+def test_cpu_instructions_0xCF_reset_08(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xCF)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x08)
+
+
+def test_cpu_instructions_0xD7_reset_10(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xD7)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x10)
+
+
+def test_cpu_instructions_0xDF_reset_18(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xDF)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x18)
+
+
+def test_cpu_instructions_0xE7_reset_20(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xE7)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x20)
+
+
+def test_cpu_instructions_0xEF_reset_28(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xEF)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x28)
+
+
+def test_cpu_instructions_0xF7_reset_30(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xF7)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x30)
+
+
+def test_cpu_instructions_0xFF_reset_38(cpu_instructions_fixture):
+    cpu_instructions_fixture.reset = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xFF)
+
+    cpu_instructions_fixture.reset.assert_called_once_with(0x38)
+
+
+def test_cpu_instructions_0xC9_return(cpu_instructions_fixture):
+    cpu_instructions_fixture.return_ = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC9)
+
+    cpu_instructions_fixture.return_.assert_called_once()
+
+
+def test_cpu_instructions_0xC0_return(cpu_instructions_fixture):
+    cpu_instructions_fixture.return_ = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC0)
+
+    cpu_instructions_fixture.return_.assert_called_once_with(conditional_zero_flag=False)
+
+
+def test_cpu_instructions_0xC8_return(cpu_instructions_fixture):
+    cpu_instructions_fixture.return_ = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xC8)
+
+    cpu_instructions_fixture.return_.assert_called_once_with(conditional_zero_flag=True)
+
+
+def test_cpu_instructions_0xD0_return(cpu_instructions_fixture):
+    cpu_instructions_fixture.return_ = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xD0)
+
+    cpu_instructions_fixture.return_.assert_called_once_with(conditional_carry_flag=False)
+
+
+def test_cpu_instructions_0xD8_return(cpu_instructions_fixture):
+    cpu_instructions_fixture.return_ = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xD8)
+
+    cpu_instructions_fixture.return_.assert_called_once_with(conditional_carry_flag=True)
+
+
+def test_cpu_instructions_0xD9_return_interrupts(cpu_instructions_fixture):
+    cpu_instructions_fixture.return_ = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xD9)
+
+    cpu_instructions_fixture.return_.assert_called_once_with(enable_interrupts=True)
+
+
+def test_cpu_instructions_0x00_no_op(cpu_instructions_fixture):
+    cpu_instructions_fixture.no_op = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x00)
+
+    cpu_instructions_fixture.no_op.assert_called_once()
+
+
+def test_cpu_instructions_0xF3_di(cpu_instructions_fixture):
+    cpu_instructions_fixture.disable_interrupts = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xF3)
+
+    cpu_instructions_fixture.disable_interrupts.assert_called_once()
+
+
+def test_cpu_instructions_0xFB_di(cpu_instructions_fixture):
+    cpu_instructions_fixture.enable_interrupts = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0xFB)
+
+    cpu_instructions_fixture.enable_interrupts.assert_called_once()
+
+
+def test_cpu_instructions_0x76_halt(cpu_instructions_fixture):
+    cpu_instructions_fixture.halt = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x76)
+
+    cpu_instructions_fixture.halt.assert_called_once()
+
+
+def test_cpu_instructions_0x27_daa(cpu_instructions_fixture):
+    cpu_instructions_fixture.decimal_adjust_accumulator = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x27)
+
+    cpu_instructions_fixture.decimal_adjust_accumulator.assert_called_once()
+
+
+def test_cpu_instructions_0x10_stop(cpu_instructions_fixture):
+    cpu_instructions_fixture.stop = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x10)
+
+    cpu_instructions_fixture.stop.assert_called_once()
+
+
+def test_cpu_instructions_0x37_set_carry_flag(cpu_instructions_fixture):
+    cpu_instructions_fixture.set_carry_flag = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x37)
+
+    cpu_instructions_fixture.set_carry_flag.assert_called_once()
+
+
+def test_cpu_instructions_0x3F_complement_carry_flag(cpu_instructions_fixture):
+    cpu_instructions_fixture.complement_carry_flag = mock.Mock()
+    cpu_instructions_fixture.execute_instruction(0x3F)
+
+    cpu_instructions_fixture.complement_carry_flag.assert_called_once()
+

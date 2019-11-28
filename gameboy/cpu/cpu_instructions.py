@@ -6,6 +6,10 @@ class CPUInstructions:
         self._cpu = cpu
 
     def execute_instruction(self, op_code: int):
+        # ~`~ No-op ~`~
+        if op_code == 0x00:
+            return self.no_op()
+
         # ~`~ Register-to-register loads ~`~
         if op_code == 0x40:
             return self.load('b', 'b')
@@ -421,17 +425,216 @@ class CPUInstructions:
             return self.complement_8_bit_register('a')
 
         # ~`~ Extended operations ~`~
-        if op_code == 0x2B:
+        if op_code == 0xCB:
             return self.execute_extended_operation()
+
+        # ~`~ 16 bit math ~`~
+        if op_code == 0x09:
+            return self.add_16_bit_registers('hl', 'bc')
+        if op_code == 0x19:
+            return self.add_16_bit_registers('hl', 'de')
+        if op_code == 0x29:
+            return self.add_16_bit_registers('hl', 'hl')
+        if op_code == 0x39:
+            return self.add_16_bit_registers('hl', 'sp')
+        if op_code == 0xE8:
+            return self.add_signed_immediate_to_16_bit_register('sp')
+        if op_code == 0x03:
+            return self.increment_16_bit_register('bc')
+        if op_code == 0x13:
+            return self.increment_16_bit_register('de')
+        if op_code == 0x23:
+            return self.increment_16_bit_register('hl')
+        if op_code == 0x33:
+            return self.increment_16_bit_register('sp')
+        if op_code == 0x0B:
+            return self.decrement_16_bit_register('bc')
+        if op_code == 0x1B:
+            return self.decrement_16_bit_register('de')
+        if op_code == 0x2B:
+            return self.decrement_16_bit_register('hl')
+        if op_code == 0x3B:
+            return self.decrement_16_bit_register('sp')
+        if op_code == 0x34:
+            return self.increment_memory_at_register('hl')
+        if op_code == 0x35:
+            return self.decrement_memory_at_register('hl')
+
+        # ~`~ Jump ~`~
+        if op_code == 0xE9:
+            return self.jump_to_16_bit_register('hl')
+        if op_code == 0xC3:
+            return self.jump_to_immediate()
+        if op_code == 0xC2:
+            return self.jump_to_immediate(conditional_zero_flag=False)
+        if op_code == 0xCA:
+            return self.jump_to_immediate(conditional_zero_flag=True)
+        if op_code == 0xD2:
+            return self.jump_to_immediate(conditional_carry_flag=False)
+        if op_code == 0xDA:
+            return self.jump_to_immediate(conditional_carry_flag=True)
+        if op_code == 0x18:
+            return self.jump_to_immediate(relative=True)
+        if op_code == 0x20:
+            return self.jump_to_immediate(relative=True, conditional_zero_flag=False)
+        if op_code == 0x28:
+            return self.jump_to_immediate(relative=True, conditional_zero_flag=True)
+        if op_code == 0x30:
+            return self.jump_to_immediate(relative=True, conditional_carry_flag=False)
+        if op_code == 0x38:
+            return self.jump_to_immediate(relative=True, conditional_carry_flag=True)
+
+        # ~`~ Call ~`~
+        if op_code == 0xC4:
+            return self.call_immediate(conditional_zero_flag=False)
+        if op_code == 0xCC:
+            return self.call_immediate(conditional_zero_flag=True)
+        if op_code == 0xD4:
+            return self.call_immediate(conditional_carry_flag=False)
+        if op_code == 0xDC:
+            return self.call_immediate(conditional_carry_flag=True)
+        if op_code == 0xCD:
+            return self.call_immediate()
+
+        # ~`~ Reset ~`~
+        if op_code == 0xC7:
+            return self.reset(0x00)
+        if op_code == 0xCF:
+            return self.reset(0x08)
+        if op_code == 0xD7:
+            return self.reset(0x10)
+        if op_code == 0xDF:
+            return self.reset(0x18)
+        if op_code == 0xE7:
+            return self.reset(0x20)
+        if op_code == 0xEF:
+            return self.reset(0x28)
+        if op_code == 0xF7:
+            return self.reset(0x30)
+        if op_code == 0xFF:
+            return self.reset(0x38)
+
+        # ~`~ Return ~`~
+        if op_code == 0xC9:
+            return self.return_()
+        if op_code == 0xC0:
+            return self.return_(conditional_zero_flag=False)
+        if op_code == 0xC8:
+            return self.return_(conditional_zero_flag=True)
+        if op_code == 0xD0:
+            return self.return_(conditional_carry_flag=False)
+        if op_code == 0xD8:
+            return self.return_(conditional_carry_flag=True)
+        if op_code == 0xD9:
+            return self.return_(enable_interrupts=True)
+
+        # ~`~ Enable/disable interrupts ~`~
+        if op_code == 0xF3:
+            return self.disable_interrupts()
+        if op_code == 0xFB:
+            return self.enable_interrupts()
+
+        # ~`~ Halt ~`~
+        if op_code == 0x76:
+            return self.halt()
+
+        # ~`~ DAA ~`~
+        if op_code == 0x27:
+            return self.decimal_adjust_accumulator()
+
+        # ~`~ Stop ~`~
+        if op_code == 0x10:
+            return self.stop()
+
+        # ~`~ Carry flag ops ~`~
+        if op_code == 0x37:
+            return self.set_carry_flag()
+        if op_code == 0x3F:
+            return self.complement_carry_flag()
 
         raise NotImplementedError(f'Opcode {op_code} not implemented.')
 
+    def no_op(self):
+        self._cpu.get_cycle_clock().tick()
+
+    # di: disable interrupts
+    def disable_interrupts(self):
+        self._cpu.get_registers().disable_interrupts()
+        self._cpu.set_interrupt_enable_pending(False)
+
+        self._cpu.get_cycle_clock().tick()
+
+    # ei: enable interrupts
+    def enable_interrupts(self):
+        self._cpu.set_interrupt_enable_pending(True)
+
+        self._cpu.get_cycle_clock().tick()
+
+    def halt(self):
+        self._cpu.set_halted()
+        self._cpu.get_cycle_clock().tick()
+
+    def stop(self):
+        self._cpu.stop()
+        self._cpu.get_cycle_clock().tick()
+
     # Move program counter to a address in memory unconditionally
-    def call(self, address: int):
+    def reset(self, address: int):
         self._cpu.push_word_to_stack(self._cpu.get_registers().get_program_counter())
         self._cpu.get_registers().set_program_counter(address)
 
-        self._cpu.get_cycle_clock().tick(5)
+        self._cpu.get_cycle_clock().tick(3)
+
+    def return_(self, conditional_zero_flag: bool=None, conditional_carry_flag: bool=None, enable_interrupts=False):
+        self._cpu.get_cycle_clock().tick(1)
+
+        if conditional_zero_flag is not None:
+            if not conditional_zero_flag == (self._cpu.get_registers().read_flag_zero() > 0):
+                return
+
+        if conditional_carry_flag is not None:
+            if not conditional_carry_flag == (self._cpu.get_registers().read_flag_carry() > 0):
+                return
+
+        if enable_interrupts:
+            self._cpu.get_registers().enable_interrupts()
+
+        self._jump(self._cpu.pop_word_from_stack())
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    def call_immediate(self, conditional_zero_flag: bool=None, conditional_carry_flag: bool=None):
+        call_to_immediate = self._cpu.read_immediate_word()
+        self._cpu.get_cycle_clock().tick(3)
+
+        if conditional_zero_flag is not None:
+            if not conditional_zero_flag == (self._cpu.get_registers().read_flag_zero() > 0):
+                return
+
+        if conditional_carry_flag is not None:
+            if not conditional_carry_flag == (self._cpu.get_registers().read_flag_carry() > 0):
+                return
+
+        self._cpu.push_word_to_stack(self._cpu.get_registers().get_program_counter())
+        self._cpu.get_registers().set_program_counter(call_to_immediate)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # scf: set carry flag
+    def set_carry_flag(self):
+        self._cpu.get_registers().update_flag_subtract(False)
+        self._cpu.get_registers().update_flag_half_carry(False)
+        self._cpu.get_registers().update_flag_carry(True)
+
+        self._cpu.get_cycle_clock().tick()
+
+    # ccf: complement carry flag
+    def complement_carry_flag(self):
+        self._cpu.get_registers().update_flag_subtract(False)
+        self._cpu.get_registers().update_flag_half_carry(False)
+        self._cpu.get_registers().update_flag_carry(not self._cpu.get_registers().read_flag_carry())
+
+        self._cpu.get_cycle_clock().tick()
 
     # ld $reg8, $reg8: Load 8 bit register with value of another
     def load(self, from_register: str, to_register: str):
@@ -649,6 +852,44 @@ class CPUInstructions:
 
         self._set_8_bit_register_value(result_register_name, sum_ & 0xFF)
 
+    # add $reg16, $reg16: add two 16 bit registers together
+    def add_16_bit_registers(self, result_register_16: str, add_register_16: str):
+        add_register_value = self._get_16_bit_register_value(add_register_16)
+
+        self._add_16_bit(add_register_value, result_register_16)
+
+        self._cpu.get_cycle_clock().tick(3)
+
+    def _add_16_bit(self, add_value_16: int, result_register_16: str):
+        result_register_value = self._get_16_bit_register_value(result_register_16)
+
+        sum_ = result_register_value + add_value_16
+        half_sum = (result_register_value & 0xFFF) + (add_value_16 & 0xFFF)
+
+        self._cpu.get_registers().update_flag_subtract(False)
+        self._cpu.get_registers().update_flag_half_carry(half_sum > 0xFFF)
+        self._cpu.get_registers().update_flag_carry(sum_ > 0xFFFF)
+
+        self._set_16_bit_register_value(result_register_16, sum_ & 0xFFFF)
+
+    # add $reg16, imm8i: Add signed immediate to 16 bit register
+    def add_signed_immediate_to_16_bit_register(self, result_register_16: str):
+        result_register_value = self._get_16_bit_register_value(result_register_16)
+        signed_immediate = self._cpu.read_immediate_signed_byte()
+
+        offset_register_value = result_register_value + signed_immediate
+
+        self._cpu.get_registers().update_flags(
+            zero=False,
+            subtract=False,
+            half_carry=(offset_register_value & 0xF) < (result_register_value & 0xF),
+            carry=(offset_register_value & 0xFF) < (result_register_value & 0xFF)
+        )
+
+        self._set_16_bit_register_value(result_register_16, offset_register_value)
+
+        self._cpu.get_cycle_clock().tick(4)
+
     # sub|c $reg8, $reg8: Subtract two registers. Optionally subtract the carry flag bit as well.
     # Setting compare_only will only modify flags and not actually modify register
     def subtract_8_bit_registers(self, result_register: str, subtract_register: str,
@@ -736,6 +977,56 @@ class CPUInstructions:
         )
 
         self._cpu.get_cycle_clock().tick(1)
+
+    # inc $reg16: Increment 16 bit register
+    def increment_16_bit_register(self, increment_register_16: str):
+        register_value = self._get_16_bit_register_value(increment_register_16)
+        self._set_16_bit_register_value(increment_register_16, (register_value + 1) & 0xFFFF)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # dec $reg16: Decrement 16 bit register
+    def decrement_16_bit_register(self, decrement_register_16: str):
+        register_value = self._get_16_bit_register_value(decrement_register_16)
+        self._set_16_bit_register_value(decrement_register_16, (register_value - 1) & 0xFFFF)
+
+        self._cpu.get_cycle_clock().tick(2)
+
+    # inc ($reg16): Increment memory at 16 bit register
+    def increment_memory_at_register(self, memory_register_16_bit: str):
+        memory_address = self._get_16_bit_register_value(memory_register_16_bit)
+        memory_address_value = self._cpu.get_memory_unit().read_byte(memory_address)
+
+        result = (memory_address_value + 1) & 0xFF
+
+        self._cpu.get_memory_unit().write_byte(memory_address, result)
+
+        self._cpu.get_registers().update_flags(
+            zero=result == 0,
+            subtract=False,
+            half_carry=(memory_address_value & 0xF) == 0xF,
+            carry=self._cpu.get_registers().read_flag_carry() > 0
+        )
+
+        self._cpu.get_cycle_clock().tick(3)
+
+    # dec ($reg16): Decrement memory at 16 bit register
+    def decrement_memory_at_register(self, memory_register_16_bit: str):
+        memory_address = self._get_16_bit_register_value(memory_register_16_bit)
+        memory_address_value = self._cpu.get_memory_unit().read_byte(memory_address)
+
+        result = (memory_address_value - 1) & 0xFF
+
+        self._cpu.get_memory_unit().write_byte(memory_address, result)
+
+        self._cpu.get_registers().update_flags(
+            zero=result == 0,
+            subtract=True,
+            half_carry=(memory_address_value & 0xF) == 0x0,
+            carry=self._cpu.get_registers().read_flag_carry() > 0
+        )
+
+        self._cpu.get_cycle_clock().tick(3)
 
     # and $reg8, $reg8: bitwise AND two registers together
     def bitwise_and_8_bit_register(self, result_register: str, bitwise_register: str):
@@ -906,6 +1197,67 @@ class CPUInstructions:
         register_value = self._get_8_bit_register_value(register_name)
 
         self._set_8_bit_register_value(register_name, register_value ^ 0xFF)
+
+    def jump_to_16_bit_register(self, register_16: str):
+        self._jump(self._get_16_bit_register_value(register_16))
+
+        self._cpu.get_cycle_clock().tick(1)
+
+    def jump_to_immediate(self, conditional_zero_flag: bool=None, conditional_carry_flag: bool=None, relative=False):
+        if relative:
+            self._cpu.get_cycle_clock().tick(2)
+            jump_to_input = self._cpu.read_immediate_signed_byte()
+        else:
+            self._cpu.get_cycle_clock().tick(3)
+            jump_to_input = self._cpu.read_immediate_word()
+
+        if conditional_zero_flag is not None:
+            if not conditional_zero_flag == (self._cpu.get_registers().read_flag_zero() > 0):
+                return
+
+        if conditional_carry_flag is not None:
+            if not conditional_carry_flag == (self._cpu.get_registers().read_flag_carry() > 0):
+                return
+
+        if relative:
+            self._jump_relative(jump_to_input)
+        else:
+            self._jump(jump_to_input)
+
+        if conditional_zero_flag is not None or conditional_carry_flag is not None:
+            self._cpu.get_cycle_clock().tick(1)
+
+    def _jump(self, address: int):
+        self._cpu.get_registers().set_program_counter(address)
+
+    def _jump_relative(self, offset: int):
+        self._cpu.get_registers().set_program_counter(self._cpu.get_registers().get_program_counter() + offset)
+
+    # daa: I...don't get it
+    def decimal_adjust_accumulator(self):
+        register_a_value = self._get_8_bit_register_value('_register_a')
+
+        if self._cpu.get_registers().read_flag_subtract():
+            if self._cpu.get_registers().read_flag_half_carry():
+                register_a_value -= 0x06
+                register_a_value &= 0xFF
+
+            if self._cpu.get_registers().read_flag_carry():
+                register_a_value -= 0x60
+        else:
+            if register_a_value & 0x0F > 0x09 or self._cpu.get_registers().read_flag_half_carry():
+                register_a_value += 0x06
+
+            if register_a_value > 0x9F or self._cpu.get_registers().read_flag_carry():
+                register_a_value += 0x60
+
+        self._cpu.get_registers().update_flag_zero(register_a_value & 0xFF == 0)
+        self._cpu.get_registers().update_flag_half_carry(False)
+
+        if register_a_value & 0x100:
+            self._cpu.get_registers().update_flag_carry(True)
+
+        self._set_8_bit_register_value('_register_a', register_a_value)
 
     def execute_extended_operation(self):
         operation, bit_index_or_sub_op, register = self._get_extended_operation_parts()

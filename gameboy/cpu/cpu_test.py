@@ -38,6 +38,16 @@ def test_cpu_get_registers(cpu_fixture):
     assert cpu_fixture.get_registers() == cpu_fixture._registers
 
 
+def test_cpu_get_interrupts_enabled_pending(cpu_fixture):
+    cpu_fixture._interrupt_enable_pending = True
+    assert cpu_fixture.get_interrupt_enable_pending()
+
+
+def test_cpu_set_interrupts_enabled_pending(cpu_fixture):
+    cpu_fixture.set_interrupt_enable_pending(True)
+    assert cpu_fixture._interrupt_enable_pending
+
+
 def test_cpu_get_memory_unit(cpu_fixture):
     assert cpu_fixture.get_memory_unit() == cpu_fixture._memory_unit
 
@@ -84,6 +94,18 @@ def test_cpu_set_halted(cpu_fixture):
     cpu_fixture.set_halted()
 
     assert cpu_fixture._is_halted
+
+
+def test_cpu_set_halted_bug_emulation(cpu_fixture):
+    cpu_fixture._registers._interrupts_enabled = True
+    cpu_fixture.set_halted()
+
+    assert not cpu_fixture._halt_bug
+
+    cpu_fixture._registers._interrupts_enabled = False
+    cpu_fixture.set_halted()
+
+    assert cpu_fixture._halt_bug
 
 
 def test_cpu_handle_interrupts_no_interrupts_no_execute(cpu_fixture):
@@ -221,7 +243,8 @@ def test_cpu_handle_interrupt_call_40_if_processed(cpu_fixture):
 
     cpu_fixture._handle_interrupt(2)
 
-    cpu_fixture._cpu_instructions.call.assert_called_once_with(0x50)
+    cpu_fixture._cpu_instructions.reset.assert_called_once_with(0x50)
+    assert cpu_fixture._cycle_clock.get_total_machine_cycles() == 2
 
 
 def test_cpu_handle_interrupt_not_call_40_if_not_processed(cpu_fixture):
@@ -281,6 +304,16 @@ def test_cpu_step_halted(cpu_fixture):
     cpu_fixture._execute_operation.assert_not_called()
 
 
+def test_cpu_step_stopped(cpu_fixture):
+    cpu_fixture._is_stopped = True
+    cpu_fixture._execute_operation = mock.Mock()
+
+    cpu_fixture.step()
+
+    assert cpu_fixture._cycle_clock.get_total_machine_cycles() == 0
+    cpu_fixture._execute_operation.assert_not_called()
+
+
 def test_cpu_step_interrupt_enable_pending(cpu_fixture):
     cpu_fixture._registers.set_program_counter(0xC000)
     cpu_fixture._registers.disable_interrupts()
@@ -310,3 +343,19 @@ def test_cpu_step_executes_next_op_code(cpu_fixture):
     cpu_fixture.step()
 
     cpu_fixture._execute_operation.assert_called_once_with(0x01)
+
+
+def test_cpu_step_halt_bug(cpu_fixture):
+    cpu_fixture._execute_operation = mock.Mock()
+    cpu_fixture._registers.set_program_counter(0xC000)
+    cpu_fixture._halt_bug = True
+
+    cpu_fixture.step()
+
+    assert not cpu_fixture._halt_bug
+    assert cpu_fixture._registers._program_counter == 0xC000
+
+
+def test_cpu_stop(cpu_fixture):
+    cpu_fixture.stop()
+    assert cpu_fixture._is_stopped
