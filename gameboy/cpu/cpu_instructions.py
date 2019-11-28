@@ -1322,7 +1322,8 @@ class CPUInstructions:
 
         self._cpu.get_cycle_clock().tick(4 if register_index == 6 else 2)  # writing to (HL) takes 2 extra cycles
 
-    def _extended_op_rotate_right(self, register_index: int, with_carry_bit=False, shift_only=False, shift_only_special=False):
+    def _extended_op_rotate_right(self, register_index: int, with_carry_bit=False, shift_only=False,
+                                  shift_only_special=False):
         value = self._get_extended_op_register_value(register_index)
 
         if shift_only:
