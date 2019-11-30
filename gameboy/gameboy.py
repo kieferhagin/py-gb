@@ -21,10 +21,16 @@ class GameBoy:
         pass
 
     def step(self) -> None:
-        pass
+        # TODO: input update
+        self._cpu.handle_interrupts()
+        self._cpu.step()
 
     def set_interrupt(self, interrupt_bit):
         pass
 
     def get_memory_unit(self) -> MemoryUnit:
         return self._memory_unit
+
+    def reset(self):
+        self._cpu.reset()
+

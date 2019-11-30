@@ -26,12 +26,19 @@ def test_cpu_reset(cpu_fixture):
     cpu_fixture._registers = mock.Mock()
     cpu_fixture._cycle_clock = mock.Mock()
     cpu_fixture._is_halted = True
+    cpu_fixture._halt_bug = True
+    cpu_fixture._is_stopped = True
+    cpu_fixture._interrupt_enable_pending = True
 
     cpu_fixture.reset()
 
     cpu_fixture._registers.reset.assert_called_once()
     cpu_fixture._cycle_clock.reset.assert_called_once()
+
     assert not cpu_fixture._is_halted
+    assert not cpu_fixture._halt_bug
+    assert not cpu_fixture._is_stopped
+    assert not cpu_fixture._interrupt_enable_pending
 
 
 def test_cpu_get_registers(cpu_fixture):
@@ -110,7 +117,7 @@ def test_cpu_set_halted_bug_emulation(cpu_fixture):
 
 def test_cpu_handle_interrupts_no_interrupts_no_execute(cpu_fixture):
     cpu_fixture.set_halted()
-    cpu_fixture._handle_interrupts()
+    cpu_fixture.handle_interrupts()
 
     assert cpu_fixture._is_halted
 
@@ -121,7 +128,7 @@ def test_cpu_handle_interrupts_clears_halted(cpu_fixture):
     cpu_fixture._memory_unit.get_interrupt_flag_register().set_vblank_interrupt()
     cpu_fixture._memory_unit.get_interrupt_enable_register().enable_vblank_interrupt()
 
-    cpu_fixture._handle_interrupts()
+    cpu_fixture.handle_interrupts()
 
     assert not cpu_fixture._is_halted
 
@@ -134,7 +141,7 @@ def test_cpu_handle_interrupts_no_handle_if_global_disable(cpu_fixture):
 
     cpu_fixture._handle_interrupt = mock.Mock()
 
-    cpu_fixture._handle_interrupts()
+    cpu_fixture.handle_interrupts()
 
     cpu_fixture._handle_interrupt.assert_not_called()
 
@@ -148,7 +155,7 @@ def test_cpu_handle_interrupts_iterates_all_interrupts(cpu_fixture):
     cpu_fixture._handle_interrupt = mock.Mock()
     cpu_fixture._handle_interrupt.return_value = False
 
-    cpu_fixture._handle_interrupts()
+    cpu_fixture.handle_interrupts()
 
     assert cpu_fixture._handle_interrupt.call_count == 5
 
@@ -170,7 +177,7 @@ def test_cpu_handle_interrupts_iterates_until_one_processed(cpu_fixture):
     cpu_fixture._handle_interrupt = mock.Mock()
     cpu_fixture._handle_interrupt.side_effect = [False, False, True]
 
-    cpu_fixture._handle_interrupts()
+    cpu_fixture.handle_interrupts()
 
     assert cpu_fixture._handle_interrupt.call_count == 3
 
@@ -359,3 +366,10 @@ def test_cpu_step_halt_bug(cpu_fixture):
 def test_cpu_stop(cpu_fixture):
     cpu_fixture.stop()
     assert cpu_fixture._is_stopped
+
+
+def test_cpu_execute_operation(cpu_fixture):
+    cpu_fixture._cpu_instructions.execute_instruction = mock.Mock()
+    cpu_fixture._execute_operation(0x00)
+
+    cpu_fixture._cpu_instructions.execute_instruction.assert_called_once_with(0x00)

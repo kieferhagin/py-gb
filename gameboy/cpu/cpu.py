@@ -21,6 +21,9 @@ class CPU:
         self._cycle_clock.reset()
 
         self._is_halted = False
+        self._halt_bug = False
+        self._is_stopped = False
+        self._interrupt_enable_pending = False
 
     def get_interrupt_enable_pending(self) -> bool:
         return self._interrupt_enable_pending
@@ -50,7 +53,8 @@ class CPU:
         self._execute_operation(op_code)
 
     def _execute_operation(self, op_code: int):
-        pass
+        print(f'Executed op code {hex(op_code)}')
+        self._cpu_instructions.execute_instruction(op_code)
 
     def get_registers(self) -> CPURegisters:
         return self._registers
@@ -61,7 +65,7 @@ class CPU:
     def get_cycle_clock(self) -> CycleClock:
         return self._cycle_clock
 
-    def _handle_interrupts(self) -> None:
+    def handle_interrupts(self) -> None:
         raised_enabled_interrupt_bits = self._get_raised_enabled_interrupt_bits()
 
         if not raised_enabled_interrupt_bits:

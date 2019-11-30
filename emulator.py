@@ -14,6 +14,12 @@ def main():
     game_boy = GameBoy()
     game_boy.load_rom(rom=test_rom)
 
+    test_rom.validate_header_checksum()
+    test_rom.validate_rom_checksum()
+    memory_bank_model = test_rom.get_memory_bank_model()
+
+    step_test(game_boy)
+
     # timer_test()
 
 
@@ -21,6 +27,16 @@ def load_test_rom():
     with open("test_roms/instr_timing.gb", "rb") as binary_file:
         return ROM(bytearray(binary_file.read()))
 
+def load_tetris():
+    with open("test_roms/TETRIS.GB", "rb") as binary_file:
+        return ROM(bytearray(binary_file.read()))
+
+def step_test(gameboy):
+    print("Running timer test...")
+
+    while True:
+        gameboy.step()
+        time.sleep(0.0001)
 
 def timer_test():
     print("Running timer test...")
