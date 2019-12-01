@@ -7,18 +7,26 @@ from gameboy.rom import ROM
 
 
 @pytest.fixture()
-def memory_unit_fixture() -> MemoryUnit:
-    return MemoryUnit()
+def memory_unit_fixture(test_rom_fixture) -> MemoryUnit:
+    m = MemoryUnit()
+    m.set_cartridge_rom(test_rom_fixture)
+    
+    return m
 
 
-def test_memory_unit_init(memory_unit_fixture):
-    assert memory_unit_fixture._interrupt_flag_register is not None
-    assert memory_unit_fixture._interrupt_enable_register is not None
-    assert memory_unit_fixture._video_ram is not None
-    assert memory_unit_fixture._work_ram is not None
-    assert memory_unit_fixture._high_ram is not None
-    assert memory_unit_fixture._boot_rom is not None
-    assert memory_unit_fixture._cartridge_rom is None
+def test_memory_unit_init():
+    m = MemoryUnit()
+    assert m._interrupt_flag_register is not None
+    assert m._interrupt_enable_register is not None
+    assert m._video_ram is not None
+    assert m._work_ram is not None
+    assert m._high_ram is not None
+    assert m._boot_rom is not None
+    assert m._cartridge_rom is None
+
+    assert m._mbc_rom_bank == 1
+    assert m._mbc_ram_bank == 0
+    assert not m._mbc1_4_32_mode
 
 
 def test_memory_unit_set_cartridge_rom(memory_unit_fixture):
@@ -153,3 +161,32 @@ def test_enable_rom_ram(memory_unit_fixture):
     memory_unit_fixture.write_byte(0x00, 0x00)
 
     assert not memory_unit_fixture._cartridge_ram_bank_enabled
+
+
+def test_set_rom_bank_mbc_1(memory_unit_fixture):
+    memory_unit_fixture.write_byte(0x3000, 0)
+
+    assert memory_unit_fixture._mbc_rom_bank == 1
+
+    memory_unit_fixture.write_byte(0x3000, 0b11111111)
+
+    assert memory_unit_fixture._mbc_rom_bank == 0b00011111
+
+
+def test_set_ram_bank_mbc_1_rom(memory_unit_fixture):
+    memory_unit_fixture.write_byte(0x4000, 0b00000011)
+
+    assert memory_unit_fixture._mbc_rom_bank == 0b01100001
+
+    memory_unit_fixture._mbc1_4_32_mode = True
+    memory_unit_fixture.write_byte(0x4000, 0b00000011)
+
+    assert memory_unit_fixture._mbc_ram_bank == 3
+
+
+def test_set_mbc1_mode(memory_unit_fixture):
+    memory_unit_fixture.write_byte(0x6000, 1)
+    assert memory_unit_fixture._mbc1_4_32_mode
+
+    memory_unit_fixture.write_byte(0x6000, 0)
+    assert not memory_unit_fixture._mbc1_4_32_mode

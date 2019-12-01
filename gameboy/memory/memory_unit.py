@@ -16,10 +16,14 @@ class MemoryUnit:
         self._high_ram = HighRAM()
         self._boot_rom = BootROM()
 
-        self._cartridge_rom = None
+        self._cartridge_rom: ROM = None
 
         self._boot_rom_locked = False
         self._cartridge_ram_bank_enabled = False
+
+        self._mbc_rom_bank = 1
+        self._mbc_ram_bank = 0
+        self._mbc1_4_32_mode = False
 
     def set_cartridge_rom(self, rom: ROM):
         self._cartridge_rom = rom
@@ -64,13 +68,28 @@ class MemoryUnit:
         raise NotImplementedError('Address: {}'.format(address))
 
     def write_byte(self, address: int, value: int) -> None:
-        if address < 0x2000:  # Cartridge RAM enable
+        if 0x0000 <= address < 0x2000:  # Cartridge RAM enable
             self._cartridge_ram_bank_enabled = (value & 0xF) == 0xA
             return
 
-        if address < 0x4000:  # ROM bank select
+        if 0x2000 <= address < 0x4000:  # ROM bank select
             self._set_rom_bank(address, value)
             return
+
+        if 0x4000 <= address < 0x6000:  # RAM bank select or high bits of ROM bank if MBC 1
+            self._set_ram_bank(address, value)
+            return
+
+        if 0x6000 <= address < 0x8000:  # MBC1 mode select or MBC real-time-clock latching
+            if self._cartridge_rom.get_memory_bank_model() == ROM.MemoryBankModel.MBC_1:
+                self._set_mbc1_mode(value)
+
+                return
+
+            if self._cartridge_rom.get_memory_bank_model() == ROM.MemoryBankModel.MBC_3:
+                pass  # TODO: RTC latch
+
+                return
 
         if 0x8000 <= address < 0xA000:  # Video RAM
             return self._video_ram.write_byte(address, value)
@@ -97,7 +116,39 @@ class MemoryUnit:
         raise NotImplementedError('Address: {}'.format(hex(address)))
 
     def _set_rom_bank(self, address: int, value: int):
-        pass
+        if self._cartridge_rom.get_memory_bank_model() == ROM.MemoryBankModel.MBC_1:
+            # Bottom 5 bits of ROM bank number
+            bank_number = value & 0x1F
+
+            # Setting to 0 actually sets it to 1
+            if bank_number == 0:
+                bank_number = 1
+
+            self._mbc_rom_bank = (self._mbc_rom_bank & 0xE0) | bank_number
+
+            return
+
+        if self._cartridge_rom.get_memory_bank_model() == ROM.MemoryBankModel.MBC_2:
+            pass
+
+    def _set_ram_bank(self, address: int, value: int):
+        if self._cartridge_rom.get_memory_bank_model() == ROM.MemoryBankModel.MBC_1:
+            if self._mbc1_4_32_mode:
+                self._mbc_ram_bank = value & 0x3
+            else:
+                self._mbc_rom_bank = (self._mbc_rom_bank & 0x1F) | ((value & 0x3) << 5)
+
+    def _set_mbc1_mode(self, value: int):
+        if value & 1:  # RAM Banking mode - 32Kbyte RAM in 4 banks, 4MBit ROM
+            self._mbc1_4_32_mode = True
+            self._mbc_ram_bank = (self._mbc_rom_bank >> 5) & 0x03
+            self._mbc_rom_bank &= ~0x1F
+
+        else:  # ROM Banking mode - 8Kbytes unbanked RAM, 16MBit ROM
+            self._mbc1_4_32_mode = False
+            self._mbc_rom_bank = (self._mbc_rom_bank & 0x1F) | ((self._mbc_ram_bank & 0x03) << 5)
+            self._mbc_ram_bank = 0
+
 
     def write_word(self, address: int, value: int):
         self.write_byte(address, value & 255)
