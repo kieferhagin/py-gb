@@ -146,7 +146,7 @@ class CPU:
 
     def push_word_to_stack(self, value):
         stack_pointer = self._registers.get_stack_pointer()
-        new_stack_pointer = stack_pointer - 2
+        new_stack_pointer = (stack_pointer - 2) & 0xFFFF
 
         self._memory_unit.write_word(new_stack_pointer, value)
         self._registers.set_stack_pointer(new_stack_pointer)

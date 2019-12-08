@@ -9,7 +9,7 @@ def main():
     print("Hello World!")
     print("Starting emulator...")
 
-    test_rom = load_test_rom()
+    test_rom = load_tetris()
 
     game_boy = GameBoy()
     game_boy.load_rom(rom=test_rom)
@@ -36,7 +36,7 @@ def step_test(gameboy):
 
     while True:
         gameboy.step()
-        time.sleep(0.0001)
+        time.sleep(0.000001)
 
 def timer_test():
     print("Running timer test...")

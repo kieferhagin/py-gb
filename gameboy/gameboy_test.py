@@ -21,8 +21,8 @@ def test_gameboy_get_memory_unit(gameboy_fixture):
     assert gameboy_fixture.get_memory_unit() == gameboy_fixture._memory_unit
 
 
-def test_gameboy_it_should_load_rom(gameboy_fixture):
-    rom = ROM(bytearray())
-    gameboy_fixture.load_rom(rom)
+def test_gameboy_it_should_load_rom(gameboy_fixture, test_rom_fixture):
+    gameboy_fixture.load_rom(test_rom_fixture)
 
-    assert gameboy_fixture._rom == rom
+    assert gameboy_fixture._rom == test_rom_fixture
+    assert gameboy_fixture._memory_unit._cartridge_rom == test_rom_fixture

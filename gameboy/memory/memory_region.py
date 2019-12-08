@@ -4,7 +4,7 @@ class MemoryRegion:
         self._base_address = base_address
 
     def read_byte(self, address: int) -> int:
-        return self._data[address - self._base_address]
+        return self._data[(address - self._base_address) % len(self._data)]
 
     def write_byte(self, address: int, value: int):
         self._data[address - self._base_address] = value

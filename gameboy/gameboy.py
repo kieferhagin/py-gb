@@ -14,6 +14,7 @@ class GameBoy:
         print('Loaded ROM: {}'.format(rom.get_title()))
 
         self._rom = rom
+        self._memory_unit.set_cartridge_rom(rom)
 
         return True
 
