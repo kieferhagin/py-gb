@@ -33,6 +33,14 @@ def test_memory_unit_init():
     assert not m._mbc1_4_32_mode
 
 
+def test_memory_unit_get_vram(memory_unit_fixture):
+    assert memory_unit_fixture.get_video_ram() == memory_unit_fixture._video_ram
+
+
+def test_memory_unit_get_ioram(memory_unit_fixture):
+    assert memory_unit_fixture.get_io_ram() == memory_unit_fixture._io_ram
+
+
 def test_memory_unit_set_cartridge_rom(memory_unit_fixture, test_rom_fixture):
     test_rom_fixture.get_ram_size = mock.Mock()
     test_rom_fixture.get_ram_size.return_value = 8192

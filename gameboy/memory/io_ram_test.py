@@ -38,3 +38,13 @@ def test_reset_lcd_y(io_ram_fixture):
 
     io_ram_fixture.write_byte(0xFF44, 0b11111111)
     assert io_ram_fixture.read_byte(0xFF44) == 0
+
+
+def test_get_sprite_height(io_ram_fixture):
+    io_ram_fixture._data[0x40] = 0x04
+
+    assert io_ram_fixture.get_sprite_height() == 16
+
+    io_ram_fixture._data[0x40] = 0x00
+
+    assert io_ram_fixture.get_sprite_height() == 8

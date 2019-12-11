@@ -10,6 +10,12 @@ class IORAM(MemoryRegion):
     def get_boot_ram_locked(self) -> bool:
         return self._boot_rom_locked
 
+    def get_sprite_height(self) -> int:
+        return 16 if self._get_lcd_control() & 0x04 else 8
+
+    def _get_lcd_control(self) -> int:
+        return self.read_byte(0xFF40)
+
     def write_byte(self, address: int, value: int):
         if address == 0xFF50:  # Boot ROM lock
             self._boot_rom_locked = True

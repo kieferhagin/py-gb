@@ -45,6 +45,12 @@ class MemoryUnit:
     def get_interrupt_enable_register(self) -> InterruptEnableRegister:
         return self._interrupt_enable_register
 
+    def get_video_ram(self) -> VideoRAM:
+        return self._video_ram
+
+    def get_io_ram(self) -> IORAM:
+        return self._io_ram
+
     def read_byte(self, address: int) -> int:
         if self._dma_active and address < 0xFF00:
             return 0xFF

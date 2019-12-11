@@ -25,6 +25,7 @@ class GameBoy:
         # TODO: input update
         self._cpu.handle_interrupts()
         self._cpu.step()
+        self._memory_unit.dma_update()
 
     def set_interrupt(self, interrupt_bit):
         pass
