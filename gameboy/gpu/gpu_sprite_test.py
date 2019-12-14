@@ -5,7 +5,7 @@ from gameboy.gpu.gpu_sprite import GPUSprite
 
 @pytest.fixture()
 def gpu_sprite_fixture() -> GPUSprite:
-    return GPUSprite(x=0, y=0, tiles=[0, 0], attributes=0)
+    return GPUSprite(x=0, y=0, pixels=[0, 0], attributes=0)
 
 
 def test_gpu_sprite_get_x(gpu_sprite_fixture):
@@ -15,15 +15,15 @@ def test_gpu_sprite_get_x(gpu_sprite_fixture):
 
 
 def test_gpu_sprite_get_y(gpu_sprite_fixture):
-    gpu_sprite_fixture._x = 1
+    gpu_sprite_fixture._y = 1
 
     assert gpu_sprite_fixture.get_y() == 1
 
 
-def test_gpu_sprite_get_tiles(gpu_sprite_fixture):
-    gpu_sprite_fixture._tiles = [1, 2]
+def test_gpu_sprite_get_pixels(gpu_sprite_fixture):
+    gpu_sprite_fixture._pixels = [1, 2]
 
-    assert gpu_sprite_fixture.get_tiles() == [1, 2]
+    assert gpu_sprite_fixture.get_pixels() == [1, 2]
 
 
 def test_gpu_sprite_get_attributes_byte(gpu_sprite_fixture):

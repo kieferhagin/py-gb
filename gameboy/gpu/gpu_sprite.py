@@ -1,8 +1,8 @@
 class GPUSprite:
-    def __init__(self, x: int, y: int, tiles: list, attributes: int):
+    def __init__(self, x: int, y: int, pixels: list, attributes: int):
         self._x = x
         self._y = y
-        self._tiles = tiles
+        self._pixels = pixels
         self._attributes = attributes
 
     def get_x(self) -> int:
@@ -11,8 +11,8 @@ class GPUSprite:
     def get_y(self) -> int:
         return self._y
 
-    def get_tiles(self) -> list:
-        return self._tiles
+    def get_pixels(self) -> list:
+        return self._pixels
 
     def get_attributes_byte(self) -> int:
         return self._attributes
